@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sjsu-sf",
+    "name": "SJSU → SF Financial District",
+    "origin": "37.3352,-121.8811",
+    "dest": "37.7946,-122.3999"
+  },
+  {
+    "id": "fremont-mountain-view",
+    "name": "Fremont → Mountain View",
+    "origin": "37.5485,-121.9886",
+    "dest": "37.3861,-122.0839"
+  },
+  {
+    "id": "sf-oakland",
+    "name": "SF Financial District → Downtown Oakland",
+    "origin": "37.7946,-122.3999",
+    "dest": "37.8044,-122.2712"
+  },
+  {
+    "id": "san-jose-palo-alto",
+    "name": "San Jose → Palo Alto",
+    "origin": "37.3382,-121.8863",
+    "dest": "37.4419,-122.1430"
+  },
+  {
+    "id": "walnut-creek-sf",
+    "name": "Walnut Creek → SF Financial District",
+    "origin": "37.9101,-122.0652",
+    "dest": "37.7946,-122.3999"
+  }
+]

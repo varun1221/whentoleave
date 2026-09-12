@@ -1,0 +1,57 @@
+name: sample
+
+on:
+  schedule:
+    # Sunday 09:00 UTC ~= 02:00 PT. Actions can fire 15+ minutes late, which does not
+    # matter here: we ask for forecasts of future times, so a late run samples the
+    # same slots.
+    - cron: "0 9 * * 0"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "sweep (full run, commits data) | probe | spread | aggregate"
+        type: choice
+        default: sweep
+        options: [sweep, probe, spread, aggregate]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sample
+  cancel-in-progress: false
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Build sampler
+        run: ./gradlew :sampler:shadowJar
+
+      - name: Run sampler
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+          MAX_CALLS: "500"
+        run: java -jar sampler/build/libs/sampler.jar ${{ inputs.mode || 'sweep' }}
+
+      - name: Commit new samples
+        if: ${{ inputs.mode == '' || inputs.mode == 'sweep' || inputs.mode == 'aggregate' }}
+        run: |
+          git config user.name  "forecast-sampler[bot]"
+          git config user.email "forecast-sampler@users.noreply.github.com"
+          git add data/samples web/public/data/forecasts.json
+          if git diff --cached --quiet; then
+            echo "No new data — nothing to commit."
+            exit 0
+          fi
+          git commit -m "data: weekly sweep $(date -u +%Y-%m-%d)"
+          git push

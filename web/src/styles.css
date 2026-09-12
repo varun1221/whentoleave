@@ -1,0 +1,414 @@
+/* Light is the base; dark redefines only the tokens. Every color in the app is a
+   token, so the two modes stay in sync by construction. */
+:root {
+  color-scheme: light;
+  --surface-0: #f7f6f3;
+  --surface-1: #fdfdfc;
+  --surface-2: #ffffff;
+  --border: #e0ded7;
+  --grid: #eceae4;
+  --text-primary: #14140f;
+  --text-secondary: #4a4943;
+  --text-muted: #7c7a72;
+  --accent: #a83f28;
+  --day-col: 3.25rem;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface-0: #101010;
+    --surface-1: #141414;
+    --surface-2: #1c1c1a;
+    --border: #2e2e2a;
+    --grid: #262624;
+    --text-primary: #f4f3ee;
+    --text-secondary: #b9b7ad;
+    --text-muted: #85837a;
+    --accent: #e08f4e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  margin-bottom: 1.75rem;
+}
+
+h1 {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  letter-spacing: -0.02em;
+}
+
+.standfirst {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--text-secondary);
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.subhead {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ------------------------------------------------------------------ panels */
+
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.15rem 1.25rem;
+  margin-bottom: 1.1rem;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+
+/* ------------------------------------------------------------ route picker */
+
+.route-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.route-tab {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.route-tab:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.route-tab.is-selected {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--surface-1);
+}
+
+/* ----------------------------------------------------------------- heatmap */
+
+.heatmap {
+  position: relative;
+}
+
+/* Scroll the grid rather than squashing 13 columns at phone width. */
+.heatmap-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.grid {
+  display: grid;
+  gap: 2px; /* the surface gap that keeps adjacent cells from bleeding together */
+  min-width: 34rem;
+}
+
+.corner {
+  min-height: 1.4rem;
+}
+
+.col-head,
+.row-head {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row-head {
+  justify-content: flex-start;
+  padding-right: 0.4rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.row-head.is-selected {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 2.1rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+.cell.is-empty {
+  color: var(--text-muted);
+}
+
+/* An unsampled cell reads as a hole in the data, not as a fast trip. */
+.cell.is-empty::after {
+  content: "·";
+  color: var(--text-muted);
+}
+
+.cell.in-selected-row {
+  box-shadow: inset 0 0 0 2px var(--text-primary);
+}
+
+.cell.is-marked {
+  font-weight: 600;
+}
+
+.marker {
+  position: absolute;
+  bottom: 1px;
+  font-size: 0.53rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.cell-value {
+  line-height: 1;
+}
+
+.cell.is-marked .cell-value {
+  transform: translateY(-3px);
+}
+
+/* ------------------------------------------------------------------ legend */
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.legend-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  max-width: 22rem;
+}
+
+.legend-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------- tooltip */
+
+.tooltip {
+  position: absolute;
+  top: -0.3rem;
+  right: 0;
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.08);
+}
+
+.tooltip-value {
+  font-weight: 600;
+}
+
+.tooltip-meta,
+.tooltip-empty {
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------- curve */
+
+/* ResponsiveContainer measures this box. Without an explicit height it measures
+   zero and Recharts silently renders nothing. */
+.curve-frame {
+  height: 17rem;
+}
+
+/* ---------------------------------------------------------------- leave by */
+
+.arrival-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.arrival-field input {
+  font: inherit;
+  padding: 0.3rem 0.45rem;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.leave-headline {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.leave-detail {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.penalty-list {
+  list-style: none;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.penalty-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.45rem 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.penalty-slot {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.penalty-cost {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.penalty-late {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ states */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.empty-note,
+.loading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: var(--accent);
+  max-width: 40rem;
+}
+
+.colophon {
+  margin-top: 1.75rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.caveat {
+  margin: 0;
+  max-width: 48rem;
+}
+
+.colophon p {
+  margin: 0;
+}
+
+@media (max-width: 34rem) {
+  .shell {
+    padding: 1.5rem 0.85rem 3rem;
+  }
+  .panel {
+    padding: 0.9rem;
+  }
+}
+
+/* ARIA rows that group the grid cells for screen readers without creating a
+   layout box — the cells stay direct participants in the parent grid. */
+.aria-row {
+  display: contents;
+}

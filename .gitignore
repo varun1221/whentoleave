@@ -1,0 +1,15 @@
+# Java / Gradle
+.gradle/
+build/
+*.class
+
+# Node
+node_modules/
+web/dist/
+
+# Local secrets — the API key lives in GitHub Secrets, never here
+.env
+*.local
+
+# OS
+.DS_Store

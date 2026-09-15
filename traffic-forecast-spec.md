@@ -321,7 +321,7 @@ This is the project's real asset. **Never write a code path that truncates these
 ```json
 {
   "generatedAt": "2026-08-30T09:05:00Z",
-  "weeksSampled": 6,
+  "sweepsSampled": 6,
   "routes": [
     {
       "id": "sjsu-sf",
@@ -490,7 +490,7 @@ Display remaining quota from `/api/quota`. Visible limits read as intentional de
 ### 10.5 Presentation
 
 - Landing page renders the heatmap immediately, zero interaction required.
-- Footer: `generatedAt`, `weeksSampled`, total sample count.
+- Footer: `generatedAt`, `sweepsSampled`, total sample count.
 - Handle fetch failure — a blank white screen is worse than an error message.
 - See the `frontend-design` guidance. A heatmap lives or dies on its color scale.
 

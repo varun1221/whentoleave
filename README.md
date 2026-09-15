@@ -38,9 +38,10 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | Piece | State |
 |---|---|
 | Java 21 sampler (`sweep`, `aggregate`, `probe`, `spread`) | Working, 30 unit tests green |
-| Sweeps run | Two, 2026-09-05 and 2026-09-12 — 910 calls, 910 rows, zero failures |
-| `data/samples/*.jsonl` | 182 rows per route across 5 routes |
-| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 2` |
+| Sweeps run | Three: 2026-09-05, 09-12, 09-13 — 1,365 calls, 1,365 rows, zero failures |
+| `data/samples/*.jsonl` | 273 rows per route across 5 routes |
+| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 3` |
+| Weekly cron | Ran unattended on 2026-09-13 and committed its own data |
 | React heatmap, departure curve, leave-by panel | Working, 19 unit tests green |
 | `npm run build` | Succeeds |
 | Weekly GitHub Actions workflow | Written, **never run** |
@@ -97,20 +98,21 @@ whole product in one table.
 The sampler runs weekly, which invites a fair question: if a future `departAt` already
 returns a precomputed average, what does asking again next week add?
 
-That was worth measuring rather than assuming. Two full sweeps were run seven days
-apart, on 2026-09-05 and 2026-09-12, covering the same 455 buckets. Comparing them cell
-by cell:
+That was worth measuring rather than assuming. Three full sweeps now exist, and
+comparing the first against the most recent — 2026-09-05 against 2026-09-13, eight days
+apart — across the same 455 buckets gives:
 
 | | |
 |---|---|
 | Cells returning an identical duration | 34 of 455 (7%) |
 | Median change | 0.31% |
-| Mean change | 0.42% |
-| Largest change in any cell | 1.78% |
+| Mean change | 0.43% |
+| Largest change in any cell | 4.42% |
 | Cells moving more than 5% | 0 |
 
 The numbers do move, but barely. Hour-of-day swings on these corridors run from 63% to
-107%; the largest week-over-week change anywhere in the grid was under 2%. Every
+107%; the largest change anywhere in the grid was under 5%, and the median cell moved a
+third of one percent. Every
 corridor's spread landed within a point of where a single sweep had already put it, and
 the best and worst cells did not move.
 

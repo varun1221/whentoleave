@@ -76,13 +76,34 @@ class AggregatorTest {
     }
 
     @Test
-    void weeksSampledCountsDistinctIsoWeeks() {
+    void sweepsSampledCountsDistinctDates() {
         List<Sample> samples = List.of(
                 sampleAt("2026-08-30T09:02:11Z"),
                 sampleAt("2026-09-06T09:02:11Z"),  // the next weekly sweep
                 sampleAt("2026-09-13T09:02:11Z"),  // and the one after
                 sampleAt("2026-09-13T10:02:11Z")); // same sweep, second route
-        assertEquals(3, Aggregator.weeksSampled(samples));
+        assertEquals(3, Aggregator.sweepsSampled(samples));
+    }
+
+    /**
+     * The bug this replaced: a manual Saturday run and the Sunday cron fall in one ISO
+     * week, so counting weeks reported 2 while every cell reported n = 3. The footer
+     * prints both numbers, so they have to agree.
+     */
+    @Test
+    void twoSweepsInOneIsoWeekCountAsTwo() {
+        List<Sample> samples = List.of(
+                sampleAt("2026-09-12T19:47:00Z"),  // Saturday, manual run
+                sampleAt("2026-09-13T13:47:00Z")); // Sunday, cron — same ISO week
+        assertEquals(2, Aggregator.sweepsSampled(samples));
+    }
+
+    @Test
+    void samplesWithoutRequestedAtAreIgnored() {
+        List<Sample> samples = List.of(
+                sampleAt("2026-09-12T19:47:00Z"),
+                new Sample("2026-09-14T08:00", "MONDAY", 8, 2461L, 78234L, null));
+        assertEquals(1, Aggregator.sweepsSampled(samples));
     }
 
     private static Sample sample(String day, int hour, long seconds) {

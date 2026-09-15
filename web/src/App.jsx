@@ -182,8 +182,8 @@ export default function App() {
 
       <footer className="colophon">
         <p>
-          Medians across {forecasts.weeksSampled} weekly sweep
-          {forecasts.weeksSampled === 1 ? "" : "s"} · {forecasts.totalSamples} samples ·
+          Medians across {forecasts.sweepsSampled} sweep
+          {forecasts.sweepsSampled === 1 ? "" : "s"} · {forecasts.totalSamples} samples ·
           last updated {formatDate(forecasts.generatedAt)} · departure hours{" "}
           {hourLabel(stats.hours[0])}–{hourLabel(stats.hours[stats.hours.length - 1])}{" "}
           Pacific.
@@ -192,7 +192,7 @@ export default function App() {
           These are historical averages from TomTom’s speed-profile data, reshaped into
           a view neither TomTom nor Google Maps offers. It does not out-predict either —
           it shows you the shape of the week they already know about.
-          {forecasts.weeksSampled < 3 && (
+          {forecasts.sweepsSampled < 3 && (
             <> Low sample counts this early; each cell’s <em>n</em> is in its tooltip.</>
           )}
         </p>

@@ -1,6 +1,6 @@
 {
-  "generatedAt" : "2026-09-13T13:47:30Z",
-  "weeksSampled" : 2,
+  "generatedAt" : "2026-09-15T18:10:58Z",
+  "sweepsSampled" : 3,
   "totalSamples" : 1365,
   "routes" : [ {
     "id" : "sjsu-sf",

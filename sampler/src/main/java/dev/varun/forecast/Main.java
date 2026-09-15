@@ -119,9 +119,9 @@ public final class Main {
 
         System.out.printf(
                 "sweep complete: routes=%d slots=%d calls=%d appended=%d noRoute=%d "
-                        + "failures=%d weeksSampled=%d totalSamples=%d%n",
+                        + "failures=%d sweepsSampled=%d totalSamples=%d%n",
                 usable.size(), slots.size(), client.callsMade(), appended, noRoute,
-                failures, forecasts.weeksSampled(), forecasts.totalSamples());
+                failures, forecasts.sweepsSampled(), forecasts.totalSamples());
 
         // Non-zero only when nothing at all got through. A partial sweep still improves
         // the medians and still deploys.
@@ -135,9 +135,9 @@ public final class Main {
         ForecastsFile forecasts =
                 aggregator.build(readRoutes(), new SampleStore(SAMPLES_DIR));
         aggregator.writeTo(FORECASTS_OUT, forecasts);
-        System.out.printf("aggregate complete: routes=%d weeksSampled=%d totalSamples=%d "
+        System.out.printf("aggregate complete: routes=%d sweepsSampled=%d totalSamples=%d "
                         + "-> %s%n",
-                forecasts.routes().size(), forecasts.weeksSampled(),
+                forecasts.routes().size(), forecasts.sweepsSampled(),
                 forecasts.totalSamples(), FORECASTS_OUT);
         return 0;
     }

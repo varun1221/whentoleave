@@ -12,9 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -75,19 +75,24 @@ public final class Aggregator {
         return buckets;
     }
 
-    /** Distinct ISO weeks the samples were requested in. */
-    static int weeksSampled(List<Sample> samples) {
-        WeekFields weekFields = WeekFields.ISO;
-        Set<String> weeks = new HashSet<>();
+    /**
+     * Distinct dates the samples were requested on — one per sweep.
+     *
+     * <p>Counting ISO weeks instead would under-report: a manual run on Saturday and
+     * the Sunday cron both land in one ISO week, so three sweeps would read as two
+     * while every cell reported n = 3. The two numbers appear side by side in the
+     * footer, so they have to agree.
+     */
+    static int sweepsSampled(List<Sample> samples) {
+        Set<LocalDate> dates = new HashSet<>();
         for (Sample sample : samples) {
             if (sample.requestedAt() == null) {
                 continue;
             }
-            var date = Instant.parse(sample.requestedAt()).atZone(ZoneOffset.UTC);
-            weeks.add(date.get(weekFields.weekBasedYear())
-                    + "-" + date.get(weekFields.weekOfWeekBasedYear()));
+            dates.add(Instant.parse(sample.requestedAt())
+                    .atZone(ZoneOffset.UTC).toLocalDate());
         }
-        return weeks.size();
+        return dates.size();
     }
 
     public ForecastsFile build(List<Route> routes, SampleStore store) throws IOException {
@@ -108,7 +113,7 @@ public final class Aggregator {
         return new ForecastsFile(
                 DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(
                         java.time.temporal.ChronoUnit.SECONDS)),
-                weeksSampled(everything),
+                sweepsSampled(everything),
                 everything.size(),
                 forecasts);
     }

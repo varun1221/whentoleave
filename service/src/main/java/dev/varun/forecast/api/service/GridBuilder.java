@@ -58,7 +58,8 @@ public class GridBuilder {
                 medianDistance == null ? null : medianDistance.intValue(),
                 samples.size(),
                 Instant.now(),
-                buckets);
+                buckets,
+                null);
     }
 
     static Long median(List<Long> values) {

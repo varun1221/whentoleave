@@ -1,7 +1,9 @@
 package dev.varun.forecast.api.web;
 
+import dev.varun.forecast.api.config.ClientIp;
 import dev.varun.forecast.api.service.ForecastGrid;
 import dev.varun.forecast.api.service.LookupService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +25,8 @@ public class LookupController {
      * the daily quota when it cannot.
      */
     @PostMapping("/lookup")
-    public ForecastGrid lookup(@Valid @RequestBody LookupRequest request) {
-        return lookups.lookup(request.origin(), request.dest());
+    public ForecastGrid lookup(@Valid @RequestBody LookupRequest request,
+            HttpServletRequest http) {
+        return lookups.lookup(request.origin(), request.dest(), ClientIp.of(http));
     }
 }

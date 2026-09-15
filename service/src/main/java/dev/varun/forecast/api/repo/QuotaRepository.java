@@ -33,4 +33,12 @@ public interface QuotaRepository extends JpaRepository<DailyQuota, LocalDate> {
     @Query(value = "UPDATE daily_quota SET calls_made = :calls WHERE day = :day",
             nativeQuery = true)
     void setCalls(@Param("day") LocalDate day, @Param("calls") int calls);
+
+    /** Gives back unspent calls, never taking the count below zero. */
+    @Modifying
+    @Query(value = """
+            UPDATE daily_quota SET calls_made = GREATEST(0, calls_made - :calls)
+            WHERE day = :day
+            """, nativeQuery = true)
+    void release(@Param("day") LocalDate day, @Param("calls") int calls);
 }

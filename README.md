@@ -42,6 +42,8 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | `data/samples/*.jsonl` | 273 rows per route across 5 routes |
 | `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 3` |
 | Weekly cron | Ran unattended on 2026-09-13 and committed its own data |
+| Phase 2 service | Steps 8–12 done locally: schema, seed import, lookup, limits, search |
+| Tests | 205 passing — 32 sampler, 154 service, 19 web |
 | React heatmap, departure curve, leave-by panel | Working, 19 unit tests green |
 | `npm run build` | Succeeds |
 | Weekly GitHub Actions workflow | Written, **never run** |
@@ -168,8 +170,13 @@ server tiers that sleep produce 30-second cold starts and make a demo look broke
 ### Phase 2 — planned, not built
 
 A Spring Boot 3 service on Cloud Run behind Cloudflare, with the `sample` table doubling
-as the cache, Bucket4j for per-IP limits, a global daily counter with a kill switch, and
+as the cache, per-IP and global daily counters in Postgres with a kill switch, and
 GraalVM native image compilation done last. Full design in the spec.
+
+The spec names Bucket4j for the per-IP limit; the service uses a Postgres day counter
+instead. An in-process bucket is forgotten when Cloud Run scales to zero and counted
+twice across two instances, and a rolling per-IP window gives the UI no single reset
+time to show. Both limits reset at Pacific midnight.
 
 **Why no framework in Phase 1 and a framework in Phase 2** is the single most useful
 thing about this project to be able to explain. A 90-second cron job that reads a
@@ -211,11 +218,39 @@ npm run dev         # http://localhost:5173
 npm test            # 19 tests
 ```
 
-Tests for both halves:
+Tests:
 
 ```bash
-./gradlew :sampler:test      # 30 tests
-cd web && npx vitest run     # 19 tests
+./gradlew build              # sampler + service, 186 tests
+cd web && npm test           # 19 tests
+```
+
+The service tests need a Postgres to run against — a one-time setup:
+
+```bash
+brew install postgresql@16 && brew services start postgresql@16
+createdb forecast && createdb forecast_test
+psql postgres -c "CREATE ROLE forecast LOGIN PASSWORD 'forecast'"
+psql -c "ALTER DATABASE forecast OWNER TO forecast"
+psql -c "ALTER DATABASE forecast_test OWNER TO forecast"
+```
+
+**Why a real Postgres and not H2.** The two pieces of SQL this service most depends on
+being right are the quota upsert's `ON CONFLICT` and the reserve step's
+`SELECT ... FOR UPDATE`, and those are exactly where H2's Postgres compatibility mode
+diverges. Testing on H2 would build confidence about behaviour the production database
+does not have. Testcontainers is the usual answer, but it needs a Docker daemon, which
+this project deliberately does not depend on — CI uses a Postgres service container
+instead, which gets the same fidelity.
+
+No test can spend API quota. `TOMTOM_API_KEY` is unset in the test configuration, and
+every outbound call is either pointed at a local stub HTTP server or expected to fail.
+
+Run the Phase 2 service locally:
+
+```bash
+./gradlew :service:bootRun --args='--import-seed'   # one-off: load the JSONL history
+./gradlew :service:bootRun                        # then serve on :8080
 ```
 
 ---

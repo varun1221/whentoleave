@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.varun.forecast.api.config.ForecastProperties;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -54,12 +56,13 @@ public class RoutingClient {
      *
      * @return empty when TomTom finds no route, which is a normal answer rather than an
      *     error
+     * @throws CallNotSentException when nothing reached TomTom, so the call cost nothing
      * @throws IOException on a non-retryable failure, or after exhausting retries
      */
     public Optional<RouteResult> compute(String origin, String dest, ZonedDateTime departAt)
             throws IOException, InterruptedException {
         if (!props.tomtom().configured()) {
-            throw new IOException("TOMTOM_API_KEY is not configured");
+            throw new CallNotSentException("TOMTOM_API_KEY is not configured");
         }
         // The colon between waypoints is a path separator. URL-encoding it 404s the
         // request, so only the query values get encoded.
@@ -77,8 +80,16 @@ public class RoutingClient {
                     .timeout(Duration.ofSeconds(10))
                     .GET()
                     .build();
-            HttpResponse<String> response =
-                    http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response;
+            try {
+                response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            } catch (ConnectException | HttpConnectTimeoutException e) {
+                // Only the first attempt: after that an earlier attempt was received.
+                if (attempt == 1) {
+                    throw new CallNotSentException("could not connect to TomTom", e);
+                }
+                throw e;
+            }
             int status = response.statusCode();
 
             if (status == 200) {

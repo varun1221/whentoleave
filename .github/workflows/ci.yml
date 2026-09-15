@@ -1,0 +1,89 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push should not race the first one to the same conclusion.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java:
+    name: sampler + service
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The service tests run against a real Postgres rather than H2. The two pieces of
+    # SQL that carry the most weight — the quota upsert's ON CONFLICT and the reserve
+    # step's SELECT ... FOR UPDATE — are exactly where H2's compatibility mode diverges.
+    # Testcontainers is the usual answer but wants a Docker daemon; a service container
+    # gets the same fidelity with none of that.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: forecast
+          POSTGRES_PASSWORD: forecast
+          POSTGRES_DB: forecast_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U forecast -d forecast_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # No TOMTOM_API_KEY here on purpose. Every outbound call in the tests is either
+      # pointed at a local stub server or expected to fail, so CI cannot spend quota.
+      - name: Build and test
+        run: ./gradlew build --no-daemon
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: |
+            sampler/build/reports/tests/
+            service/build/reports/tests/
+          retention-days: 7
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: web
+
+      - name: Test
+        run: npm test
+        working-directory: web
+
+      # The static site is what Cloudflare Pages builds, so a broken build should fail
+      # here rather than at deploy time.
+      - name: Build
+        run: npm run build
+        working-directory: web

@@ -1,0 +1,58 @@
+# Tests run against a real Postgres, not H2.
+#
+# The two pieces of SQL that carry the most weight here — the quota upsert's ON CONFLICT
+# and the reserve step's SELECT ... FOR UPDATE — are exactly where H2's Postgres
+# compatibility mode diverges, so testing on H2 would give confidence about behaviour
+# the production database does not have. Testcontainers would be the usual answer, but
+# it needs a Docker daemon, which this project deliberately does not depend on.
+#
+# Locally: createdb forecast_test. In CI: a postgres service container.
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/forecast_test}
+    username: ${TEST_DB_USER:forecast}
+    password: ${TEST_DB_PASSWORD:forecast}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# Mirrors the main config, so the probe paths Cloud Run uses exist in tests too.
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+forecast:
+  tomtom:
+    # No key in tests. Anything that would call out is either pointed at a local stub
+    # server or not exercised, so a test can never spend real quota.
+    api-key: ""
+    base-url: http://localhost:0
+  edge:
+    origin-secret: ""
+  cache:
+    ttl-days: 7
+  kill-switch:
+    # Read every time, so a test can flip the switch and see it immediately.
+    cache-seconds: 0
+  quota:
+    daily-ceiling: 150
+  lookup:
+    weekday-hours: [6, 7, 8]
+    per-ip-daily: 5
+  search:
+    per-ip-daily: 20
+    min-query-length: 3
+    result-limit: 5
+    country-set: US
+    cache-ttl-hours: 24
+
+logging:
+  level:
+    org.flywaydb: WARN
+    org.hibernate.SQL: WARN

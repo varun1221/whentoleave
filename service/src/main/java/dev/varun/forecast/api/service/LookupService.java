@@ -1,5 +1,6 @@
 package dev.varun.forecast.api.service;
 
+import dev.varun.forecast.api.client.CallNotSentException;
 import dev.varun.forecast.api.client.RoutingClient;
 import dev.varun.forecast.api.config.ForecastProperties;
 import dev.varun.forecast.api.domain.Corridor;
@@ -16,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -44,21 +46,26 @@ public class LookupService {
     private final QuotaService quotas;
     private final GridBuilder grids;
     private final ForecastService seeded;
+    private final DailyIpLimiter perIp;
+    private final KillSwitch killSwitch;
     private final ForecastProperties props;
 
     public LookupService(CorridorRepository corridors, SampleRepository samples,
             RoutingClient routing, QuotaService quotas, GridBuilder grids,
-            ForecastService seeded, ForecastProperties props) {
+            ForecastService seeded, DailyIpLimiter perIp, KillSwitch killSwitch,
+            ForecastProperties props) {
         this.corridors = corridors;
         this.samples = samples;
         this.routing = routing;
         this.quotas = quotas;
         this.grids = grids;
         this.seeded = seeded;
+        this.perIp = perIp;
+        this.killSwitch = killSwitch;
         this.props = props;
     }
 
-    public ForecastGrid lookup(String rawOrigin, String rawDest) {
+    public ForecastGrid lookup(String rawOrigin, String rawDest, String clientIp) {
         String origin = Coordinates.normalise(rawOrigin);
         String dest = Coordinates.normalise(rawDest);
         if (origin.equals(dest)) {
@@ -80,31 +87,70 @@ public class LookupService {
         List<Slot> missing = missingSlots(fresh, hours);
 
         if (missing.isEmpty()) {
-            // The whole point of the design: a warm corridor is free.
+            // The whole point of the design: a warm corridor is free, and costs the
+            // visitor none of their five daily lookups.
             log.info("lookup cache hit corridor={} samples={}", corridor.getId(),
                     fresh.size());
             return grids.build(corridor, fresh, WEEKDAYS, hours, true);
         }
 
-        int granted = quotas.reserve(missing.size());
-        if (granted == 0) {
-            if (fresh.isEmpty()) {
-                throw new QuotaExhaustedException(
-                        "Live lookups are paused until tomorrow", quotas.remaining());
-            }
-            // Partial data beats an error. The grid is labelled partial either way.
-            log.info("quota exhausted, serving {} cached samples for corridor={}",
-                    fresh.size(), corridor.getId());
-            return grids.build(corridor, fresh, WEEKDAYS, hours, true);
+        // Everything below this line can spend money, so the three guards sit here and
+        // not in a servlet filter: a filter would charge cache hits too.
+        if (!killSwitch.lookupsEnabled()) {
+            return degraded(corridor, fresh, hours, "lookups_paused",
+                    () -> QuotaExhaustedException.lookupsPaused(quotas.remaining()));
         }
 
-        List<Sample> added = fill(corridor, missing.subList(0, granted));
+        // The visitor's lookup is spent first, as one atomic check-and-spend: a separate
+        // check would let parallel requests from one IP all pass it. A rate-limited
+        // visitor therefore never touches the shared budget.
+        Optional<DailyIpLimiter.Spend> spend =
+                perIp.tryConsume(DailyIpLimiter.Budget.LOOKUP, clientIp);
+        if (spend.isEmpty()) {
+            return degraded(corridor, fresh, hours, "rate_limited",
+                    () -> RateLimitedException.used("lookups",
+                            perIp.dailyLimit(DailyIpLimiter.Budget.LOOKUP),
+                            perIp.resetsAt()));
+        }
+
+        QuotaService.Reservation reservation = quotas.reserve(missing.size());
+        int granted = reservation.granted();
+        if (granted == 0) {
+            // The visitor should not be charged for a global limit.
+            perIp.refund(spend.get());
+            return degraded(corridor, fresh, hours, "quota_exhausted",
+                    () -> QuotaExhaustedException.budgetSpent(quotas.remaining(),
+                            quotas.resetsAt()));
+        }
+
+        Fill fill = fill(corridor, missing.subList(0, granted));
+        // §9.4: only calls that actually reached TomTom count, against either limit.
+        quotas.release(reservation, granted - fill.sent());
+        if (fill.sent() == 0) {
+            perIp.refund(spend.get());
+        }
+
         List<Sample> combined = new ArrayList<>(fresh);
-        combined.addAll(added);
-        log.info("lookup corridor={} cached={} fetched={} stillMissing={}",
-                corridor.getId(), fresh.size(), added.size(),
-                missing.size() - added.size());
+        combined.addAll(fill.saved());
+        log.info("lookup corridor={} cached={} sent={} fetched={} stillMissing={}",
+                corridor.getId(), fresh.size(), fill.sent(), fill.saved().size(),
+                missing.size() - fill.saved().size());
         return grids.build(corridor, combined, WEEKDAYS, hours, true);
+    }
+
+    /**
+     * Serve what is cached, labelled with why it is not more. Only when there is nothing
+     * cached at all does a limit become an error the visitor sees.
+     */
+    private ForecastGrid degraded(Corridor corridor, List<Sample> fresh,
+            List<Integer> hours, String notice,
+            Supplier<RuntimeException> ifEmpty) {
+        if (fresh.isEmpty()) {
+            throw ifEmpty.get();
+        }
+        log.info("serving {} cached samples for corridor={} ({})", fresh.size(),
+                corridor.getId(), notice);
+        return grids.build(corridor, fresh, WEEKDAYS, hours, true).withNotice(notice);
     }
 
     @Transactional
@@ -132,6 +178,9 @@ public class LookupService {
         return missing;
     }
 
+    /** What a fill saved, and how many of its calls reached TomTom. */
+    record Fill(List<Sample> saved, int sent) {}
+
     /**
      * Fetches and persists the given slots.
      *
@@ -139,15 +188,17 @@ public class LookupService {
      * tolerance the sampler has, for the same reason: a grid with a hole still renders.
      */
     @Transactional
-    List<Sample> fill(Corridor corridor, List<Slot> slots) {
+    Fill fill(Corridor corridor, List<Slot> slots) {
         ZonedDateTime now = ZonedDateTime.now(DepartureSlots.ZONE);
         List<Sample> saved = new ArrayList<>();
+        int sent = 0;
         for (Slot slot : slots) {
             try {
                 ZonedDateTime departAt =
                         DepartureSlots.nextOccurrence(slot.day(), slot.hour(), now);
                 Optional<RoutingClient.RouteResult> result = routing.compute(
                         corridor.getOriginCoord(), corridor.getDestCoord(), departAt);
+                sent++;
                 if (result.isEmpty()) {
                     continue;
                 }
@@ -158,7 +209,11 @@ public class LookupService {
                         (int) result.get().durationSeconds(),
                         result.get().distanceMeters(),
                         Instant.now())));
+            } catch (CallNotSentException e) {
+                log.warn("lookup slot {} {}:00 not sent: {}", slot.day(), slot.hour(),
+                        e.getMessage());
             } catch (IOException e) {
+                sent++;
                 log.warn("lookup slot {} {}:00 failed: {}", slot.day(), slot.hour(),
                         e.getMessage());
             } catch (InterruptedException e) {
@@ -166,6 +221,6 @@ public class LookupService {
                 break;
             }
         }
-        return saved;
+        return new Fill(saved, sent);
     }
 }

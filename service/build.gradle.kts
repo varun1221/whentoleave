@@ -15,6 +15,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // Flyway owns the schema; JPA only validates against it. See application.yml.
+    // In-process cache for address search results, so a repeated query is not billed.
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
@@ -36,6 +39,9 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 }
 
 tasks.test {
+    // Same reason bootRun does it: the seed importer resolves config/routes.json and
+    // data/samples/ by the paths the Phase 1 sampler writes them to.
+    workingDir = rootProject.projectDir
     useJUnitPlatform()
     testLogging {
         events("passed", "failed", "skipped")

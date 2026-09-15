@@ -1,6 +1,8 @@
 package dev.varun.forecast.api.web;
 
 import dev.varun.forecast.api.service.QuotaExhaustedException;
+import dev.varun.forecast.api.service.RateLimitedException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +20,24 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(QuotaExhaustedException.class)
     public ResponseEntity<Map<String, Object>> quotaExhausted(QuotaExhaustedException e) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", e.code());
+        body.put("message", e.getMessage());
+        body.put("remaining", e.remaining());
+        if (e.resetsAt() != null) {
+            body.put("resetsAt", e.resetsAt());
+        }
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
+    }
+
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<Map<String, Object>> rateLimited(RateLimitedException e) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(Map.of(
-                        "error", "quota_exhausted",
+                        "error", "rate_limited",
                         "message", e.getMessage(),
-                        "remaining", e.remaining()));
+                        "dailyLimit", e.dailyLimit(),
+                        "resetsAt", e.resetsAt()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -35,6 +35,27 @@ export default function DepartureCurve({ route, day, accent }) {
 
   const fastest = data.reduce((a, b) => (b.minutes < a.minutes ? b : a));
 
+  // A zero baseline would squash the thing this chart exists to show: a swing from
+  // 65 to 93 minutes is the whole point, and against 0-100 it reads as a flat line.
+  // So the axis spans the day range plus padding, snapped to 5-minute gridlines.
+  const lo = Math.min(...data.map((d) => d.minutes));
+  const hi = Math.max(...data.map((d) => d.minutes));
+  const pad = Math.max(3, Math.round((hi - lo) * 0.2));
+  const domain = [
+    Math.max(0, Math.floor((lo - pad) / 5) * 5),
+    Math.ceil((hi + pad) / 5) * 5,
+  ];
+
+  // Above the dot is the natural place for this label, but at the first hour that puts
+  // it on top of the y-axis ticks. The minimum lands at 06:00 on most corridors, so
+  // that is the common case: push the label into the plot instead of over the axis.
+  const labelPosition =
+    fastest.hour === data[0].hour
+      ? "right"
+      : fastest.hour === data[data.length - 1].hour
+        ? "left"
+        : "top";
+
   return (
     <div className="curve-frame">
       <ResponsiveContainer width="100%" height="100%">
@@ -49,12 +70,14 @@ export default function DepartureCurve({ route, day, accent }) {
             fontSize={12}
           />
           <YAxis
-            unit="m"
+            unit=" min"
+            domain={domain}
+            allowDecimals={false}
             stroke="var(--text-muted)"
             tickLine={false}
             axisLine={false}
             fontSize={12}
-            width={48}
+            width={62}
           />
           <Tooltip
             contentStyle={{
@@ -87,8 +110,9 @@ export default function DepartureCurve({ route, day, accent }) {
             stroke={accent}
             strokeWidth={2}
             label={{
-              value: `fastest ${fastest.minutes}m`,
-              position: "top",
+              value: `fastest ${fastest.minutes} min`,
+              position: labelPosition,
+              offset: 10,
               fill: "var(--text-secondary)",
               fontSize: 12,
             }}

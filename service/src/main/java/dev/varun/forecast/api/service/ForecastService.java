@@ -1,12 +1,16 @@
 package dev.varun.forecast.api.service;
 
 import dev.varun.forecast.api.domain.Corridor;
+import dev.varun.forecast.api.domain.Sample;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.CorridorStats;
 import dev.varun.forecast.api.repo.SampleRepository;
+import java.time.DayOfWeek;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,12 +18,32 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ForecastService {
 
+    /** The seeded corridors keep the full grid the Phase 1 sampler fills. */
+    private static final List<DayOfWeek> ALL_DAYS = List.of(DayOfWeek.values());
+    private static final List<Integer> ALL_HOURS =
+            IntStream.rangeClosed(6, 18).boxed().toList();
+
     private final CorridorRepository corridors;
     private final SampleRepository samples;
+    private final GridBuilder grids;
 
-    public ForecastService(CorridorRepository corridors, SampleRepository samples) {
+    public ForecastService(CorridorRepository corridors, SampleRepository samples,
+            GridBuilder grids) {
         this.corridors = corridors;
         this.samples = samples;
+        this.grids = grids;
+    }
+
+    /**
+     * The whole grid for one seeded corridor, over its entire history rather than a
+     * freshness window — this is the committed dataset, not a cache read.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ForecastGrid> forecastFor(String slug) {
+        return corridors.findBySlug(slug).map(corridor -> {
+            List<Sample> all = samples.findByCorridorId(corridor.getId());
+            return grids.build(corridor, all, ALL_DAYS, ALL_HOURS, false);
+        });
     }
 
     /**

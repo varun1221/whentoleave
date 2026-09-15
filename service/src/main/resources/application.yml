@@ -42,3 +42,20 @@ server:
 logging:
   level:
     org.flywaydb: INFO
+
+forecast:
+  tomtom:
+    # Absent locally by default: the service then serves cache only and never spends
+    # quota by accident. Injected from a secret store in deployment, never in the image.
+    api-key: ${TOMTOM_API_KEY:}
+    base-url: https://api.tomtom.com
+  cache:
+    # A bucket younger than this is served from Postgres with zero API calls.
+    ttl-days: 7
+  quota:
+    # §7: the application-level hard stop. There is no vendor billing cap behind it.
+    daily-ceiling: 150
+  lookup:
+    # Weekday peaks only. 5 days x 9 hours = 45 calls to fill a cold user corridor,
+    # against 91 for a full grid, which would exhaust the ceiling on the second lookup.
+    weekday-hours: [6, 7, 8, 9, 10, 15, 16, 17, 18]

@@ -6,6 +6,7 @@ import dev.varun.forecast.api.domain.Corridor;
 import dev.varun.forecast.api.domain.Sample;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.SampleRepository;
+import dev.varun.forecast.api.service.Coordinates;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -76,8 +77,8 @@ public class SeedImporter implements ApplicationRunner {
             String slug = route.path("id").asText();
             Corridor corridor = upsertCorridor(
                     slug,
-                    route.path("origin").asText().replace(" ", ""),
-                    route.path("dest").asText().replace(" ", ""),
+                    Coordinates.normalise(route.path("origin").asText()),
+                    Coordinates.normalise(route.path("dest").asText()),
                     route.path("name").asText());
             corridorsSeen++;
 

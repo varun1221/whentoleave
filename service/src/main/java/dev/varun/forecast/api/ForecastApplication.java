@@ -2,6 +2,7 @@ package dev.varun.forecast.api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
  * Phase 2. Phase 1 is a cron job and deliberately has no Spring in it — read config,
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * That is what Spring is for, and introducing it here rather than there is the point.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class ForecastApplication {
 
     public static void main(String[] args) {

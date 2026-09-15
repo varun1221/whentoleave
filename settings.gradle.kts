@@ -6,3 +6,4 @@ plugins {
 rootProject.name = "forecast"
 
 include("sampler")
+include("service")

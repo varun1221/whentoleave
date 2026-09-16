@@ -1,5 +1,6 @@
 package dev.varun.forecast.api.service;
 
+import dev.varun.forecast.api.client.CallBudget;
 import dev.varun.forecast.api.client.CallNotSentException;
 import dev.varun.forecast.api.client.RoutingClient;
 import dev.varun.forecast.api.config.ForecastProperties;
@@ -7,7 +8,10 @@ import dev.varun.forecast.api.domain.Corridor;
 import dev.varun.forecast.api.domain.Sample;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.SampleRepository;
+import dev.varun.forecast.api.service.DailyIpLimiter.Budget;
+import dev.varun.forecast.api.service.DailyIpLimiter.Spend;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -48,12 +52,14 @@ public class LookupService {
     private final ForecastService seeded;
     private final DailyIpLimiter perIp;
     private final KillSwitch killSwitch;
+    private final QuotaDay day;
     private final ForecastProperties props;
+    private final Clock clock;
 
     public LookupService(CorridorRepository corridors, SampleRepository samples,
             RoutingClient routing, QuotaService quotas, GridBuilder grids,
             ForecastService seeded, DailyIpLimiter perIp, KillSwitch killSwitch,
-            ForecastProperties props) {
+            QuotaDay day, ForecastProperties props, Clock clock) {
         this.corridors = corridors;
         this.samples = samples;
         this.routing = routing;
@@ -62,7 +68,9 @@ public class LookupService {
         this.seeded = seeded;
         this.perIp = perIp;
         this.killSwitch = killSwitch;
+        this.day = day;
         this.props = props;
+        this.clock = clock;
     }
 
     public ForecastGrid lookup(String rawOrigin, String rawDest, String clientIp) {
@@ -80,7 +88,7 @@ public class LookupService {
             return seeded.forecastFor(corridor.getSlug()).orElseThrow();
         }
         List<Integer> hours = props.lookup().weekdayHours();
-        Instant cutoff = Instant.now().minus(props.cache().ttlDays(), ChronoUnit.DAYS);
+        Instant cutoff = clock.instant().minus(props.cache().ttlDays(), ChronoUnit.DAYS);
 
         List<Sample> fresh =
                 samples.findByCorridorIdAndRequestedAtAfter(corridor.getId(), cutoff);
@@ -97,20 +105,18 @@ public class LookupService {
         // Everything below this line can spend money, so the three guards sit here and
         // not in a servlet filter: a filter would charge cache hits too.
         if (!killSwitch.lookupsEnabled()) {
-            return degraded(corridor, fresh, hours, "lookups_paused",
-                    () -> QuotaExhaustedException.lookupsPaused(quotas.remaining()));
+            return degraded(corridor, fresh, hours, ApiCode.LOOKUPS_PAUSED,
+                    () -> LookupsUnavailableException.lookupsPaused(quotas.remaining()));
         }
 
         // The visitor's lookup is spent first, as one atomic check-and-spend: a separate
         // check would let parallel requests from one IP all pass it. A rate-limited
         // visitor therefore never touches the shared budget.
-        Optional<DailyIpLimiter.Spend> spend =
-                perIp.tryConsume(DailyIpLimiter.Budget.LOOKUP, clientIp);
+        Optional<Spend> spend = perIp.tryConsume(Budget.LOOKUP, clientIp);
         if (spend.isEmpty()) {
-            return degraded(corridor, fresh, hours, "rate_limited",
+            return degraded(corridor, fresh, hours, ApiCode.RATE_LIMITED,
                     () -> RateLimitedException.used("lookups",
-                            perIp.dailyLimit(DailyIpLimiter.Budget.LOOKUP),
-                            perIp.resetsAt()));
+                            perIp.dailyLimit(Budget.LOOKUP), day.resetsAt()));
         }
 
         QuotaService.Reservation reservation = quotas.reserve(missing.size());
@@ -118,23 +124,30 @@ public class LookupService {
         if (granted == 0) {
             // The visitor should not be charged for a global limit.
             perIp.refund(spend.get());
-            return degraded(corridor, fresh, hours, "quota_exhausted",
-                    () -> QuotaExhaustedException.budgetSpent(quotas.remaining(),
-                            quotas.resetsAt()));
+            return degraded(corridor, fresh, hours, ApiCode.QUOTA_EXHAUSTED,
+                    () -> LookupsUnavailableException.budgetSpent(quotas.remaining(),
+                            day.resetsAt()));
         }
 
-        Fill fill = fill(corridor, missing.subList(0, granted));
-        // §9.4: only calls that actually reached TomTom count, against either limit.
-        quotas.release(reservation, granted - fill.sent());
-        if (fill.sent() == 0) {
-            perIp.refund(spend.get());
+        QuotaBudget budget = new QuotaBudget(quotas, reservation);
+        List<Sample> saved;
+        try {
+            saved = fill(corridor, missing.subList(0, granted), budget);
+        } finally {
+            // §9.4: only calls that actually reached TomTom count, against either limit.
+            // In a finally because an unexpected failure mid-fill is exactly when the
+            // reservations it never used would otherwise be stranded.
+            quotas.release(reservation, budget.unspent());
+            if (budget.spent() == 0) {
+                perIp.refund(spend.get());
+            }
         }
 
         List<Sample> combined = new ArrayList<>(fresh);
-        combined.addAll(fill.saved());
+        combined.addAll(saved);
         log.info("lookup corridor={} cached={} sent={} fetched={} stillMissing={}",
-                corridor.getId(), fresh.size(), fill.sent(), fill.saved().size(),
-                missing.size() - fill.saved().size());
+                corridor.getId(), fresh.size(), budget.spent(), saved.size(),
+                missing.size() - saved.size());
         return grids.build(corridor, combined, WEEKDAYS, hours, true);
     }
 
@@ -143,7 +156,7 @@ public class LookupService {
      * cached at all does a limit become an error the visitor sees.
      */
     private ForecastGrid degraded(Corridor corridor, List<Sample> fresh,
-            List<Integer> hours, String notice,
+            List<Integer> hours, ApiCode notice,
             Supplier<RuntimeException> ifEmpty) {
         if (fresh.isEmpty()) {
             throw ifEmpty.get();
@@ -178,27 +191,28 @@ public class LookupService {
         return missing;
     }
 
-    /** What a fill saved, and how many of its calls reached TomTom. */
-    record Fill(List<Sample> saved, int sent) {}
-
     /**
-     * Fetches and persists the given slots.
+     * Fetches and persists the given slots, spending {@code budget} as it goes.
      *
      * <p>A failure on one slot does not abandon the rest — the same partial-failure
      * tolerance the sampler has, for the same reason: a grid with a hole still renders.
+     *
+     * <p>Nothing here counts calls. The budget is charged at the moment a request goes
+     * out, which is the only place that knows whether one did: counting per slot instead
+     * missed retries, and counting after the fact charged nothing for a request
+     * interrupted between sending and reading its answer.
      */
     @Transactional
-    Fill fill(Corridor corridor, List<Slot> slots) {
-        ZonedDateTime now = ZonedDateTime.now(DepartureSlots.ZONE);
+    List<Sample> fill(Corridor corridor, List<Slot> slots, CallBudget budget) {
+        ZonedDateTime now = ZonedDateTime.now(clock.withZone(DepartureSlots.ZONE));
         List<Sample> saved = new ArrayList<>();
-        int sent = 0;
         for (Slot slot : slots) {
             try {
                 ZonedDateTime departAt =
                         DepartureSlots.nextOccurrence(slot.day(), slot.hour(), now);
                 Optional<RoutingClient.RouteResult> result = routing.compute(
-                        corridor.getOriginCoord(), corridor.getDestCoord(), departAt);
-                sent++;
+                        corridor.getOriginCoord(), corridor.getDestCoord(), departAt,
+                        budget);
                 if (result.isEmpty()) {
                     continue;
                 }
@@ -208,12 +222,11 @@ public class LookupService {
                         slot.hour(),
                         (int) result.get().durationSeconds(),
                         result.get().distanceMeters(),
-                        Instant.now())));
+                        clock.instant())));
             } catch (CallNotSentException e) {
                 log.warn("lookup slot {} {}:00 not sent: {}", slot.day(), slot.hour(),
                         e.getMessage());
             } catch (IOException e) {
-                sent++;
                 log.warn("lookup slot {} {}:00 failed: {}", slot.day(), slot.hour(),
                         e.getMessage());
             } catch (InterruptedException e) {
@@ -221,6 +234,6 @@ public class LookupService {
                 break;
             }
         }
-        return new Fill(saved, sent);
+        return saved;
     }
 }

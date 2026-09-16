@@ -1,6 +1,7 @@
 package dev.varun.forecast.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -18,7 +19,7 @@ class MigrationTest extends DatabaseTest {
                 "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank",
                 String.class);
 
-        assertEquals(List.of("1", "2", "3"), versions);
+        assertEquals(List.of("1", "2", "3", "4"), versions);
     }
 
     @Test
@@ -49,7 +50,7 @@ class MigrationTest extends DatabaseTest {
         jdbc.update("INSERT INTO corridor (origin_coord, dest_coord, seeded) "
                 + "VALUES ('37.0,-122.0', '38.0,-121.0', false)");
 
-        org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+        assertThrows(Exception.class,
                 () -> jdbc.update("INSERT INTO corridor (origin_coord, dest_coord, seeded) "
                         + "VALUES ('37.0,-122.0', '38.0,-121.0', false)"));
     }
@@ -67,7 +68,7 @@ class MigrationTest extends DatabaseTest {
         assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM corridor",
                 Integer.class));
 
-        org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+        assertThrows(Exception.class,
                 () -> jdbc.update(
                         "INSERT INTO corridor (slug, origin_coord, dest_coord, seeded) "
                                 + "VALUES ('a', '37.3,-122.0', '38.0,-121.0', true)"));

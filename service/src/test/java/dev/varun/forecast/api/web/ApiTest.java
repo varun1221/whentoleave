@@ -11,6 +11,7 @@ import dev.varun.forecast.api.domain.Sample;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.SampleRepository;
 import dev.varun.forecast.api.service.DailyIpLimiter;
+import dev.varun.forecast.api.service.QuotaDay;
 import dev.varun.forecast.api.service.QuotaService;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -29,6 +30,7 @@ class ApiTest extends DatabaseTest {
     @Autowired private SampleRepository samples;
     @Autowired private DailyIpLimiter perIp;
     @Autowired private QuotaService quotas;
+    @Autowired private QuotaDay day;
 
     private static final String UNCACHED_LOOKUP =
             "{\"origin\":\"37.91,-122.91\",\"dest\":\"38.91,-121.91\"}";
@@ -118,7 +120,7 @@ class ApiTest extends DatabaseTest {
     void reportsWhenTheBudgetsRefill() throws Exception {
         mvc.perform(get("/api/quota"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resetsAt").value(quotas.resetsAt().toString()));
+                .andExpect(jsonPath("$.resetsAt").value(day.resetsAt().toString()));
     }
 
     @Test
@@ -135,7 +137,7 @@ class ApiTest extends DatabaseTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error").value("rate_limited"))
                 .andExpect(jsonPath("$.dailyLimit").value(5))
-                .andExpect(jsonPath("$.resetsAt").value(quotas.resetsAt().toString()));
+                .andExpect(jsonPath("$.resetsAt").value(day.resetsAt().toString()));
     }
 
     @Test
@@ -148,7 +150,31 @@ class ApiTest extends DatabaseTest {
                         .content(UNCACHED_LOOKUP))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.error").value("quota_exhausted"))
-                .andExpect(jsonPath("$.resetsAt").value(quotas.resetsAt().toString()));
+                .andExpect(jsonPath("$.resetsAt").value(day.resetsAt().toString()));
+    }
+
+    /**
+     * A partially cached corridor is served rather than refused, and the banner the UI
+     * renders travels as {@code notice} on a 200. Same vocabulary as {@code error} on a
+     * 4xx, so the frontend switches on one set of strings.
+     */
+    @Test
+    void aDegradedLookupIsA200CarryingTheReasonAsANotice() throws Exception {
+        String ip = "198.51.100.32";
+        Corridor corridor = corridors.save(
+                new Corridor(null, "37.91,-122.91", "38.91,-121.91", null, false));
+        samples.save(new Sample(corridor.getId(), DayOfWeek.MONDAY, 6, 1800, 40_000,
+                Instant.now()));
+        jdbc.update("UPDATE service_setting SET value = 'false' "
+                + "WHERE key = 'lookups_enabled'");
+
+        mvc.perform(post("/api/lookup")
+                        .header("CF-Connecting-IP", ip)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UNCACHED_LOOKUP))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notice").value("lookups_paused"))
+                .andExpect(jsonPath("$.sampleCount").value(1));
     }
 
     @Test

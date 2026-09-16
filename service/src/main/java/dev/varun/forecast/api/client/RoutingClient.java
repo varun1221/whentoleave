@@ -6,9 +6,9 @@ import dev.varun.forecast.api.config.ForecastProperties;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
-import java.net.http.HttpConnectTimeoutException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -54,12 +54,18 @@ public class RoutingClient {
     /**
      * One route for one future departure time.
      *
+     * <p>Every attempt is charged to {@code budget} before it goes out, retries
+     * included: §9.4 counts what TomTom receives, not what the caller set out to do.
+     * When the budget cannot cover an attempt it is not sent, and this route fails
+     * instead — §7 makes the ceiling the hard stop.
+     *
      * @return empty when TomTom finds no route, which is a normal answer rather than an
      *     error
      * @throws CallNotSentException when nothing reached TomTom, so the call cost nothing
      * @throws IOException on a non-retryable failure, or after exhausting retries
      */
-    public Optional<RouteResult> compute(String origin, String dest, ZonedDateTime departAt)
+    public Optional<RouteResult> compute(String origin, String dest,
+            ZonedDateTime departAt, CallBudget budget)
             throws IOException, InterruptedException {
         if (!props.tomtom().configured()) {
             throw new CallNotSentException("TOMTOM_API_KEY is not configured");
@@ -75,6 +81,15 @@ public class RoutingClient {
                 + "&travelMode=car&routeType=fastest&traffic=true";
 
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            // Claimed before the throttle rather than after, so that being interrupted
+            // while waiting errs towards charging for a request that may have gone out.
+            if (!budget.tryAcquire()) {
+                if (attempt == 1) {
+                    throw new CallNotSentException("no calls left in today's budget");
+                }
+                throw new IOException("calculateRoute had no budget to retry after "
+                        + (attempt - 1) + " attempts");
+            }
             throttle();
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(10))
@@ -86,6 +101,7 @@ public class RoutingClient {
             } catch (ConnectException | HttpConnectTimeoutException e) {
                 // Only the first attempt: after that an earlier attempt was received.
                 if (attempt == 1) {
+                    budget.refund();
                     throw new CallNotSentException("could not connect to TomTom", e);
                 }
                 throw e;

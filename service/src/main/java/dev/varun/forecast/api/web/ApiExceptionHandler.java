@@ -1,9 +1,8 @@
 package dev.varun.forecast.api.web;
 
-import dev.varun.forecast.api.service.QuotaExhaustedException;
+import dev.varun.forecast.api.service.ApiCode;
+import dev.varun.forecast.api.service.LookupsUnavailableException;
 import dev.varun.forecast.api.service.RateLimitedException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,42 +17,35 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler(QuotaExhaustedException.class)
-    public ResponseEntity<Map<String, Object>> quotaExhausted(QuotaExhaustedException e) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("error", e.code());
-        body.put("message", e.getMessage());
-        body.put("remaining", e.remaining());
-        if (e.resetsAt() != null) {
-            body.put("resetsAt", e.resetsAt());
-        }
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
+    @ExceptionHandler(LookupsUnavailableException.class)
+    public ResponseEntity<ApiError> lookupsUnavailable(LookupsUnavailableException e) {
+        // resetsAt is null for the kill switch, and drops out of the body rather than
+        // promising the visitor a time that does not exist.
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiError.globalLimit(e.code(), e.getMessage(), e.remaining(),
+                        e.resetsAt()));
     }
 
     @ExceptionHandler(RateLimitedException.class)
-    public ResponseEntity<Map<String, Object>> rateLimited(RateLimitedException e) {
+    public ResponseEntity<ApiError> rateLimited(RateLimitedException e) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(Map.of(
-                        "error", "rate_limited",
-                        "message", e.getMessage(),
-                        "dailyLimit", e.dailyLimit(),
-                        "resetsAt", e.resetsAt()));
+                .body(ApiError.visitorLimit(e.getMessage(), e.dailyLimit(),
+                        e.resetsAt()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> badInput(IllegalArgumentException e) {
+    public ResponseEntity<ApiError> badInput(IllegalArgumentException e) {
         return ResponseEntity.badRequest()
-                .body(Map.of("error", "invalid_request", "message", e.getMessage()));
+                .body(ApiError.of(ApiCode.INVALID_REQUEST, e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> invalidBody(
-            MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiError> invalidBody(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .orElse("Invalid request body");
         return ResponseEntity.badRequest()
-                .body(Map.of("error", "invalid_request", "message", message));
+                .body(ApiError.of(ApiCode.INVALID_REQUEST, message));
     }
 }

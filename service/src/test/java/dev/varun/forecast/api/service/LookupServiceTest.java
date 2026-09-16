@@ -41,6 +41,7 @@ class LookupServiceTest extends DatabaseTest {
     @Autowired private SampleRepository samples;
     @Autowired private QuotaService quotas;
     @Autowired private DailyIpLimiter perIp;
+    @Autowired private QuotaDay day;
 
     private Corridor seeded(String slug, String origin, String dest) {
         return corridors.save(new Corridor(slug, origin, dest, slug + " label", true));
@@ -151,7 +152,7 @@ class LookupServiceTest extends DatabaseTest {
 
         ForecastGrid grid = lookups.lookup("37.3,-122.3", "38.3,-121.3", "10.0.0.8");
 
-        assertEquals("lookups_paused", grid.notice());
+        assertEquals(ApiCode.LOOKUPS_PAUSED, grid.notice());
         assertEquals(1, grid.sampleCount());
         assertEquals(150, quotas.remaining(), "the switch is checked before spending");
     }
@@ -161,20 +162,20 @@ class LookupServiceTest extends DatabaseTest {
         jdbc.update("UPDATE service_setting SET value = 'false' "
                 + "WHERE key = 'lookups_enabled'");
 
-        QuotaExhaustedException thrown = assertThrows(QuotaExhaustedException.class,
+        LookupsUnavailableException thrown = assertThrows(LookupsUnavailableException.class,
                 () -> lookups.lookup("37.4,-122.4", "38.4,-121.4", "10.0.0.9"));
 
-        assertEquals("lookups_paused", thrown.code());
+        assertEquals(ApiCode.LOOKUPS_PAUSED, thrown.code());
     }
 
     @Test
     void whenTheBudgetIsSpentAnUncachedCorridorReportsThatDistinctly() {
         quotas.reserve(150);
 
-        QuotaExhaustedException thrown = assertThrows(QuotaExhaustedException.class,
+        LookupsUnavailableException thrown = assertThrows(LookupsUnavailableException.class,
                 () -> lookups.lookup("37.5,-122.5", "38.5,-121.5", "10.0.0.10"));
 
-        assertEquals("quota_exhausted", thrown.code());
+        assertEquals(ApiCode.QUOTA_EXHAUSTED, thrown.code());
         assertEquals(0, thrown.remaining());
     }
 
@@ -183,7 +184,7 @@ class LookupServiceTest extends DatabaseTest {
     void aGlobalRefusalDoesNotSpendTheVisitorsBudget() {
         quotas.reserve(150);
 
-        assertThrows(QuotaExhaustedException.class,
+        assertThrows(LookupsUnavailableException.class,
                 () -> lookups.lookup("37.6,-122.6", "38.6,-121.6", "10.0.0.11"));
 
         assertEquals(5, perIp.remaining(Budget.LOOKUP, "10.0.0.11"));
@@ -212,7 +213,7 @@ class LookupServiceTest extends DatabaseTest {
         RateLimitedException thrown = assertThrows(RateLimitedException.class,
                 () -> lookups.lookup("37.13,-122.13", "38.13,-121.13", ip));
 
-        assertEquals(quotas.resetsAt(), thrown.resetsAt());
+        assertEquals(day.resetsAt(), thrown.resetsAt());
     }
 
     @Test
@@ -241,7 +242,7 @@ class LookupServiceTest extends DatabaseTest {
 
         ForecastGrid grid = lookups.lookup("37.8,-122.8", "38.8,-121.8", ip);
 
-        assertEquals("rate_limited", grid.notice());
+        assertEquals(ApiCode.RATE_LIMITED, grid.notice());
         assertEquals(1, grid.sampleCount());
     }
 

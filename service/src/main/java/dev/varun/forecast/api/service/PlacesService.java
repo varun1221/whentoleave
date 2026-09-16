@@ -29,13 +29,15 @@ public class PlacesService {
 
     private final SearchClient search;
     private final DailyIpLimiter perIp;
+    private final QuotaDay day;
     private final ForecastProperties props;
     private final Cache<String, List<PlaceSuggestion>> cache;
 
-    public PlacesService(SearchClient search, DailyIpLimiter perIp,
+    public PlacesService(SearchClient search, DailyIpLimiter perIp, QuotaDay day,
             ForecastProperties props) {
         this.search = search;
         this.perIp = perIp;
+        this.day = day;
         this.props = props;
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(Duration.ofHours(props.search().cacheTtlHours()))
@@ -63,7 +65,7 @@ public class PlacesService {
         Optional<DailyIpLimiter.Spend> spend =
                 perIp.tryConsume(DailyIpLimiter.Budget.SEARCH, clientIp);
         if (spend.isEmpty()) {
-            throw RateLimitedException.used("address searches", limit, perIp.resetsAt());
+            throw RateLimitedException.used("address searches", limit, day.resetsAt());
         }
 
         try {

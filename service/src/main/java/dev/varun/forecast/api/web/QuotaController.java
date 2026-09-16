@@ -3,6 +3,7 @@ package dev.varun.forecast.api.web;
 import dev.varun.forecast.api.config.ClientIp;
 import dev.varun.forecast.api.service.DailyIpLimiter;
 import dev.varun.forecast.api.service.KillSwitch;
+import dev.varun.forecast.api.service.QuotaDay;
 import dev.varun.forecast.api.service.QuotaService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -17,12 +18,14 @@ public class QuotaController {
     private final QuotaService quotas;
     private final DailyIpLimiter perIp;
     private final KillSwitch killSwitch;
+    private final QuotaDay day;
 
     public QuotaController(QuotaService quotas, DailyIpLimiter perIp,
-            KillSwitch killSwitch) {
+            KillSwitch killSwitch, QuotaDay day) {
         this.quotas = quotas;
         this.perIp = perIp;
         this.killSwitch = killSwitch;
+        this.day = day;
     }
 
     /**
@@ -47,7 +50,7 @@ public class QuotaController {
                 quotas.dailyCeiling(),
                 paused,
                 !paused && globalRemaining > 0 && lookupsRemaining > 0,
-                quotas.resetsAt());
+                day.resetsAt());
     }
 
     public record QuotaStatus(

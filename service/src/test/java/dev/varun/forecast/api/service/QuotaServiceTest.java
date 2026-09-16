@@ -12,6 +12,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -27,6 +28,9 @@ class QuotaServiceTest extends DatabaseTest {
 
     @Autowired
     private QuotaService quotas;
+
+    @Autowired
+    private QuotaDay day;
 
     @Test
     void startsWithTheWholeBudgetAvailable() {
@@ -88,7 +92,7 @@ class QuotaServiceTest extends DatabaseTest {
     void concurrentReservesNeverExceedTheCeiling() throws Exception {
         int threads = 200;
         try (ExecutorService pool = Executors.newFixedThreadPool(16)) {
-            List<Callable<Integer>> jobs = java.util.stream.IntStream.range(0, threads)
+            List<Callable<Integer>> jobs = IntStream.range(0, threads)
                     .<Callable<Integer>>mapToObj(i -> () -> quotas.reserve(1).granted())
                     .toList();
 
@@ -168,7 +172,7 @@ class QuotaServiceTest extends DatabaseTest {
 
     @Test
     void reportsWhenTheBudgetRefills() {
-        assertEquals(nextPacificMidnight(), quotas.resetsAt());
+        assertEquals(nextPacificMidnight(), day.resetsAt());
     }
 
     private static Instant nextPacificMidnight() {

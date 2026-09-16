@@ -35,6 +35,9 @@ forecast:
     base-url: http://localhost:0
   edge:
     origin-secret: ""
+  privacy:
+    # Set, so the context exercises the keyed path rather than the warn-and-carry-on one.
+    ip-secret: test-ip-secret
   cache:
     ttl-days: 7
   kill-switch:

@@ -1,5 +1,8 @@
 package dev.varun.forecast.api.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.varun.forecast.api.service.ApiCode;
+import dev.varun.forecast.api.web.ApiError;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,9 +44,11 @@ public class OriginSecretFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(OriginSecretFilter.class);
 
     private final ForecastProperties.Edge edge;
+    private final ObjectMapper json;
 
-    public OriginSecretFilter(ForecastProperties props) {
+    public OriginSecretFilter(ForecastProperties props, ObjectMapper json) {
         this.edge = props.edge();
+        this.json = json;
         if (!edge.enforced()) {
             log.warn("forecast.edge.origin-secret is not set: CF-Connecting-IP is trusted "
                     + "from any caller. Fine locally; never in deployment.");
@@ -62,10 +67,13 @@ public class OriginSecretFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
+        // A filter runs before Spring MVC, so ApiExceptionHandler never sees this one.
+        // Writing the same record it writes keeps the body shape in one place instead of
+        // letting a hand-built string drift away from it.
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(
-                "{\"error\":\"forbidden\",\"message\":\"Requests must come through the site\"}");
+        json.writeValue(response.getWriter(), ApiError.of(ApiCode.FORBIDDEN,
+                "Requests must come through the site"));
     }
 
     /** Constant-time, so the secret cannot be recovered a byte at a time from timings. */

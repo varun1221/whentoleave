@@ -22,13 +22,13 @@ public record ForecastGrid(
         /** Day name to buckets, e.g. "MONDAY". */
         Map<String, List<Bucket>> buckets,
         /**
-         * Null when the grid is everything it should be. Otherwise a reason the UI
-         * renders as a banner: {@code lookups_paused}, {@code quota_exhausted},
-         * {@code rate_limited}. A degraded answer with an explanation beats an error.
+         * Null when the grid is everything it should be. Otherwise the reason it is not,
+         * which the UI renders as a banner. A degraded answer with an explanation beats
+         * an error.
          */
-        String notice) {
+        ApiCode notice) {
 
-    public ForecastGrid withNotice(String reason) {
+    public ForecastGrid withNotice(ApiCode reason) {
         return new ForecastGrid(id, name, origin, dest, partial, distanceMeters,
                 sampleCount, generatedAt, buckets, reason);
     }

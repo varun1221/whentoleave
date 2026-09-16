@@ -1,7 +1,9 @@
 package dev.varun.forecast.api.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +41,7 @@ class CoordinatesTest {
     @Test
     void keepsGenuinelyDifferentPlacesApart() {
         // ~30 m apart, which survives rounding.
-        org.junit.jupiter.api.Assertions.assertNotEquals(
+        assertNotEquals(
                 Coordinates.normalise("37.3352,-121.8811"),
                 Coordinates.normalise("37.3355,-121.8814"));
     }
@@ -48,7 +50,7 @@ class CoordinatesTest {
     void integerCoordinatesKeepAFormTheLookupPatternAccepts() {
         String normalised = Coordinates.normalise("37.0,-121.0");
         assertEquals("37,-121", normalised);
-        org.junit.jupiter.api.Assertions.assertTrue(
+        assertTrue(
                 normalised.matches("^-?\\d{1,3}(\\.\\d+)?,\\s*-?\\d{1,3}(\\.\\d+)?$"),
                 "normalised output must still satisfy the LookupRequest pattern");
     }

@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.varun.forecast.api.DatabaseTest;
+import dev.varun.forecast.api.config.ForecastProperties;
 import dev.varun.forecast.api.repo.IpUsageRepository;
 import dev.varun.forecast.api.service.DailyIpLimiter.Budget;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -38,9 +40,20 @@ class DailyIpLimiterTest extends DatabaseTest {
     }
 
     private DailyIpLimiter limiterAt(Instant now, int lookupPerIp, int searchPerIp) {
-        return new DailyIpLimiter(usage,
-                TestProps.with("http://localhost:0", "k", lookupPerIp, searchPerIp, 3),
-                new QuotaDay(Clock.fixed(now, ZoneOffset.UTC)));
+        ForecastProperties props =
+                TestProps.with("http://localhost:0", "k", lookupPerIp, searchPerIp, 3);
+        return new DailyIpLimiter(usage, props,
+                new QuotaDay(Clock.fixed(now, ZoneOffset.UTC)), new IpHasher(props));
+    }
+
+    private void usageRowFor(LocalDate day) {
+        jdbc.update("INSERT INTO ip_daily_usage (day, budget, ip_hash, used) "
+                + "VALUES (?, 'LOOKUP', 'some-key', 1)", day);
+    }
+
+    private int rowsFor(LocalDate day) {
+        return jdbc.queryForObject("SELECT count(*) FROM ip_daily_usage WHERE day = ?",
+                Integer.class, day);
     }
 
     @Test
@@ -170,5 +183,49 @@ class DailyIpLimiterTest extends DatabaseTest {
 
         Instant afterMidnight = lateEvening.plus(Duration.ofMinutes(2));
         assertEquals(1, limiterAt(afterMidnight, 1, 20).remaining(Budget.LOOKUP, "1.2.3.4"));
+    }
+
+    /**
+     * Telling visitors apart for a day does not require knowing who they are, so the
+     * address is replaced by a keyed hash on the way in and never written down.
+     */
+    @Test
+    void theVisitorsAddressIsNeverStored() {
+        limiter(3, 20).tryConsume(Budget.LOOKUP, "203.0.113.7");
+
+        List<String> keys =
+                jdbc.queryForList("SELECT ip_hash FROM ip_daily_usage", String.class);
+        assertEquals(1, keys.size());
+        assertFalse(keys.get(0).contains("203.0.113.7"), "got: " + keys.get(0));
+    }
+
+    /**
+     * Nothing else deletes these rows and the free tier has finite disk. Pruned on a
+     * request rather than on a timer because Cloud Run scales to zero: a request is
+     * guaranteed to come eventually, a scheduled tick is not.
+     */
+    @Test
+    void theFirstSpendOfADayDropsTheDaysThatAreOver() {
+        LocalDate lastWeek = LocalDate.parse("2026-09-01");
+        usageRowFor(lastWeek);
+
+        limiter(3, 20).tryConsume(Budget.LOOKUP, "1.2.3.4");
+
+        assertEquals(0, rowsFor(lastWeek));
+    }
+
+    /**
+     * Yesterday survives the prune. A lookup that spends at 23:59 refunds against the
+     * day it spent on, and that refund can land minutes after midnight — into a row
+     * that has to still be there.
+     */
+    @Test
+    void yesterdayIsKeptSoALateRefundStillHasARowToLandOn() {
+        LocalDate yesterday = LocalDate.parse("2026-09-14");
+        usageRowFor(yesterday);
+
+        limiter(3, 20).tryConsume(Budget.LOOKUP, "1.2.3.4");
+
+        assertEquals(1, rowsFor(yesterday));
     }
 }

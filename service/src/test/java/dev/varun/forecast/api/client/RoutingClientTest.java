@@ -26,6 +26,9 @@ class RoutingClientTest {
               "trafficDelayInSeconds":420}}]}
             """;
 
+    /** Enough for the retry policy's three attempts; the budget tests size their own. */
+    private final TestBudget budget = new TestBudget(3);
+
     private static RoutingClient clientFor(StubTomTom stub) {
         return new RoutingClient(TestProps.with(stub.baseUrl(), "test-key", 5, 20, 3));
     }
@@ -37,7 +40,7 @@ class RoutingClientTest {
     @Test
     void waypointsStayUnescapedInThePath() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(200, OK_BODY)) {
-            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             String uri = stub.lastUri();
             // Only the path is asserted on: the query legitimately contains encoded
@@ -53,7 +56,7 @@ class RoutingClientTest {
     @Test
     void departAtIsUrlEncodedInTheQueryAsUtc() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(200, OK_BODY)) {
-            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             // 08:00 Pacific in September is 15:00 UTC.
             assertTrue(stub.lastUri().contains("departAt=2026-09-16T15%3A00%3A00Z"),
@@ -64,7 +67,7 @@ class RoutingClientTest {
     @Test
     void sendsTheRoutingParametersTheProjectDependsOn() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(200, OK_BODY)) {
-            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+            clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             String uri = stub.lastUri();
             assertTrue(uri.contains("travelMode=car"));
@@ -78,7 +81,7 @@ class RoutingClientTest {
     void readsDurationAndDistanceFromTheSummary() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(200, OK_BODY)) {
             Optional<RoutingClient.RouteResult> result =
-                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             assertTrue(result.isPresent());
             assertEquals(3120L, result.get().durationSeconds());
@@ -90,7 +93,7 @@ class RoutingClientTest {
     @Test
     void anEmptyRoutesArrayIsEmptyNotAnError() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(200, "{\"routes\":[]}")) {
-            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT).isEmpty());
+            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget).isEmpty());
         }
     }
 
@@ -98,7 +101,7 @@ class RoutingClientTest {
     void aSummaryWithoutTravelTimeIsEmptyRatherThanACrash() throws Exception {
         String body = "{\"routes\":[{\"summary\":{\"lengthInMeters\":78234}}]}";
         try (StubTomTom stub = new StubTomTom().enqueue(200, body)) {
-            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT).isEmpty());
+            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget).isEmpty());
         }
     }
 
@@ -107,7 +110,7 @@ class RoutingClientTest {
         String body = "{\"routes\":[{\"summary\":{\"travelTimeInSeconds\":3120}}]}";
         try (StubTomTom stub = new StubTomTom().enqueue(200, body)) {
             Optional<RoutingClient.RouteResult> result =
-                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             assertTrue(result.isPresent());
             assertNull(result.get().distanceMeters());
@@ -120,7 +123,7 @@ class RoutingClientTest {
                 .enqueue(429, "{\"error\":\"rate limited\"}")
                 .enqueue(200, OK_BODY)) {
             Optional<RoutingClient.RouteResult> result =
-                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT);
+                    clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget);
 
             assertTrue(result.isPresent());
             assertEquals(2, stub.requestCount());
@@ -132,7 +135,7 @@ class RoutingClientTest {
         try (StubTomTom stub = new StubTomTom()
                 .enqueue(503, "upstream down")
                 .enqueue(200, OK_BODY)) {
-            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT).isPresent());
+            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget).isPresent());
             assertEquals(2, stub.requestCount());
         }
     }
@@ -145,7 +148,7 @@ class RoutingClientTest {
     void doesNotRetryA400() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(400, "bad request")) {
             assertThrows(IOException.class,
-                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT));
+                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget));
             assertEquals(1, stub.requestCount(), "a 400 must not be retried");
         }
     }
@@ -154,7 +157,7 @@ class RoutingClientTest {
     void doesNotRetryA403() throws Exception {
         try (StubTomTom stub = new StubTomTom().enqueue(403, "forbidden")) {
             assertThrows(IOException.class,
-                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT));
+                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget));
             assertEquals(1, stub.requestCount(), "a 403 must not be retried");
         }
     }
@@ -164,7 +167,7 @@ class RoutingClientTest {
         try (StubTomTom stub = new StubTomTom()
                 .enqueue(500, "x").enqueue(500, "x").enqueue(500, "x")) {
             assertThrows(IOException.class,
-                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT));
+                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget));
             assertEquals(3, stub.requestCount());
         }
     }
@@ -175,7 +178,61 @@ class RoutingClientTest {
                 new RoutingClient(TestProps.with("http://127.0.0.1:1", "", 5, 20, 3));
 
         IOException thrown = assertThrows(IOException.class,
-                () -> client.compute(ORIGIN, DEST, DEPART_AT));
+                () -> client.compute(ORIGIN, DEST, DEPART_AT, budget));
         assertTrue(thrown.getMessage().contains("TOMTOM_API_KEY"));
+    }
+
+    /** §9.4: every request that reaches TomTom is charged, retries included. */
+    @Test
+    void everyAttemptIsChargedToTheBudget() throws Exception {
+        try (StubTomTom stub = new StubTomTom()
+                .enqueue(500, "x").enqueue(500, "x").enqueue(200, OK_BODY)) {
+            assertTrue(clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, budget)
+                    .isPresent());
+
+            assertEquals(3, stub.requestCount());
+            assertEquals(3, budget.spent(), "two failed attempts cost the same as one");
+        }
+    }
+
+    /**
+     * The ceiling is the hard stop, so the retry a budget cannot cover is not sent. The
+     * caller sees the slot fail, which is the whole point: failing is cheaper than
+     * overshooting the one limit standing between this endpoint and the allowance.
+     */
+    @Test
+    void doesNotRetryWhatTheBudgetCannotCover() throws Exception {
+        TestBudget oneCall = new TestBudget(1);
+        try (StubTomTom stub = new StubTomTom().enqueue(503, "down").enqueue(200, OK_BODY)) {
+            assertThrows(IOException.class,
+                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, oneCall));
+
+            assertEquals(1, stub.requestCount(), "the retry never went out");
+            assertEquals(1, oneCall.spent());
+        }
+    }
+
+    /** Nothing left at all is nothing sent, which by §9.4 costs nothing. */
+    @Test
+    void anEmptyBudgetSendsNothingAndChargesNothing() throws Exception {
+        TestBudget spent = new TestBudget(0);
+        try (StubTomTom stub = new StubTomTom().enqueue(200, OK_BODY)) {
+            assertThrows(CallNotSentException.class,
+                    () -> clientFor(stub).compute(ORIGIN, DEST, DEPART_AT, spent));
+
+            assertEquals(0, stub.requestCount());
+            assertEquals(0, spent.spent());
+        }
+    }
+
+    /** A call acquired but never connected is handed back rather than charged. */
+    @Test
+    void aFailureToConnectGivesTheCallBack() {
+        RoutingClient client =
+                new RoutingClient(TestProps.with("http://127.0.0.1:1", "k", 5, 20, 3));
+
+        assertThrows(CallNotSentException.class,
+                () -> client.compute(ORIGIN, DEST, DEPART_AT, budget));
+        assertEquals(0, budget.spent());
     }
 }

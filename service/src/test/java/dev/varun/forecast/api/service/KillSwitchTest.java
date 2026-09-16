@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.varun.forecast.api.DatabaseTest;
-import dev.varun.forecast.api.config.ForecastProperties;
 import dev.varun.forecast.api.repo.ServiceSettingRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,14 +24,7 @@ class KillSwitchTest extends DatabaseTest {
     }
 
     private KillSwitch switchCaching(int seconds) {
-        return new KillSwitch(settings, new ForecastProperties(
-                new ForecastProperties.Tomtom("", "http://localhost:0"),
-                new ForecastProperties.Cache(7),
-                new ForecastProperties.Quota(150),
-                new ForecastProperties.Lookup(java.util.List.of(6, 7, 8), 5),
-                new ForecastProperties.Search(20, 3, 5, "US", 24),
-                new ForecastProperties.KillSwitch(seconds),
-                new ForecastProperties.Edge("")));
+        return new KillSwitch(settings, TestProps.killSwitchCaching(seconds));
     }
 
     private void setSetting(String value) {

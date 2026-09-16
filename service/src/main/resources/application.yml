@@ -54,6 +54,12 @@ forecast:
     # Rule). With it set, /api/** refuses anything that skipped Cloudflare and could
     # therefore have forged CF-Connecting-IP. Blank locally; a secret in deployment.
     origin-secret: ${ORIGIN_SECRET:}
+  privacy:
+    # Keys the HMAC that stands in for a visitor's address in ip_daily_usage, so the
+    # table never holds one. Deliberately not a database column: a key kept beside the
+    # hashes it keys protects nothing. Blank locally, where the counters are throwaway
+    # and the service only warns; injected from a secret store in deployment.
+    ip-secret: ${IP_HASH_SECRET:}
   cache:
     # A bucket younger than this is served from Postgres with zero API calls.
     ttl-days: 7

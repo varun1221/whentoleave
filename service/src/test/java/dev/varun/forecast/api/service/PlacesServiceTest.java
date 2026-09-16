@@ -34,12 +34,17 @@ class PlacesServiceTest extends DatabaseTest {
     private record Fixture(PlacesService places, DailyIpLimiter limiter) {}
 
     private Fixture fixture(StubTomTom stub, int searchPerIp, int minLength) {
+        return fixtureAt(stub.baseUrl(), searchPerIp, minLength);
+    }
+
+    private Fixture fixtureAt(String baseUrl, int searchPerIp, int minLength) {
         ForecastProperties props =
-                TestProps.with(stub.baseUrl(), "test-key", 5, searchPerIp, minLength);
+                TestProps.with(baseUrl, "test-key", 5, searchPerIp, minLength);
+        QuotaDay day = new QuotaDay(Clock.systemUTC());
         DailyIpLimiter limiter =
-                new DailyIpLimiter(usage, props, new QuotaDay(Clock.systemUTC()));
+                new DailyIpLimiter(usage, props, day, new IpHasher(props));
         return new Fixture(
-                new PlacesService(new SearchClient(props), limiter, props), limiter);
+                new PlacesService(new SearchClient(props), limiter, day, props), limiter);
     }
 
     /** Not an error: the caller is still typing, and an empty list costs nothing. */
@@ -151,13 +156,11 @@ class PlacesServiceTest extends DatabaseTest {
      */
     @Test
     void aSearchThatNeverConnectsCostsNoToken() {
-        ForecastProperties props = TestProps.with("http://127.0.0.1:1", "test-key", 5, 20, 3);
-        DailyIpLimiter limiter =
-                new DailyIpLimiter(usage, props, new QuotaDay(Clock.systemUTC()));
-        PlacesService places = new PlacesService(new SearchClient(props), limiter, props);
+        // Port 1 on loopback refuses connections.
+        Fixture f = fixtureAt("http://127.0.0.1:1", 20, 3);
 
-        assertTrue(places.suggest("palo alto", IP).isEmpty());
-        assertEquals(20, limiter.remaining(Budget.SEARCH, IP));
+        assertTrue(f.places().suggest("palo alto", IP).isEmpty());
+        assertEquals(20, f.limiter().remaining(Budget.SEARCH, IP));
     }
 
     @Test

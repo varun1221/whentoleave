@@ -2,11 +2,13 @@ package dev.varun.forecast.api.service;
 
 import dev.varun.forecast.api.config.ForecastProperties;
 import dev.varun.forecast.api.repo.IpUsageRepository;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -30,6 +32,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class DailyIpLimiter {
 
+    private static final Logger log = LoggerFactory.getLogger(DailyIpLimiter.class);
+
     /** The budgets. An enum rather than a string so a namespace cannot be mistyped. */
     public enum Budget {
         LOOKUP,
@@ -40,16 +44,25 @@ public class DailyIpLimiter {
      * One token spent, and the day it was spent against. A refund goes back to that day
      * rather than to whatever day it is when the refund runs, so a request straddling
      * midnight cannot hand yesterday's token to today.
+     *
+     * <p>Carries the hashed visitor key, not the address: once a request is past
+     * {@link IpHasher} the address does not travel any further.
      */
-    public record Spend(LocalDate day, Budget budget, String ip) {}
+    public record Spend(LocalDate day, Budget budget, String ipHash) {}
 
     private final IpUsageRepository usage;
     private final QuotaDay day;
+    private final IpHasher hasher;
     private final Map<Budget, Integer> limits = new EnumMap<>(Budget.class);
 
-    public DailyIpLimiter(IpUsageRepository usage, ForecastProperties props, QuotaDay day) {
+    /** The last day this instance pruned for; see {@link #prune}. */
+    private LocalDate prunedFor;
+
+    public DailyIpLimiter(IpUsageRepository usage, ForecastProperties props, QuotaDay day,
+            IpHasher hasher) {
         this.usage = usage;
         this.day = day;
+        this.hasher = hasher;
         limits.put(Budget.LOOKUP, props.lookup().perIpDaily());
         limits.put(Budget.SEARCH, props.search().perIpDaily());
     }
@@ -64,23 +77,55 @@ public class DailyIpLimiter {
      */
     public Optional<Spend> tryConsume(Budget budget, String ip) {
         LocalDate today = day.today();
-        if (!usage.tryIncrement(today, budget.name(), ip, dailyLimit(budget))) {
+        prune(today);
+        String ipHash = hasher.hash(ip);
+        if (!usage.tryIncrement(today, budget.name(), ipHash, dailyLimit(budget))) {
             return Optional.empty();
         }
-        return Optional.of(new Spend(today, budget, ip));
+        return Optional.of(new Spend(today, budget, ipHash));
     }
 
     /** Hands back a token spent on a request that never reached TomTom. */
     public void refund(Spend spend) {
-        usage.decrement(spend.day(), spend.budget().name(), spend.ip());
+        usage.decrement(spend.day(), spend.budget().name(), spend.ipHash());
     }
 
     public long remaining(Budget budget, String ip) {
-        return Math.max(0, dailyLimit(budget) - usage.used(day.today(), budget.name(), ip));
+        return Math.max(0,
+                dailyLimit(budget) - usage.used(day.today(), budget.name(),
+                        hasher.hash(ip)));
     }
 
-    /** When every visitor's budgets refill. */
-    public Instant resetsAt() {
-        return day.resetsAt();
+    /**
+     * Drops the counters for days that are over, once per instance per day.
+     *
+     * <p>On a request rather than on a timer because Cloud Run scales to zero: a request
+     * is guaranteed to arrive eventually, a scheduled tick on a stopped instance is not.
+     * One extra DELETE on the first request after midnight is a price worth paying to
+     * not need a scheduler that only works while someone is already awake.
+     *
+     * <p>Yesterday is kept. A lookup that spends at 23:59 refunds against {@link Spend}'s
+     * day, and that refund can land after midnight; deleting the row first would silently
+     * drop it.
+     *
+     * <p>Housekeeping never fails a request: a prune that cannot run is logged and the
+     * request carries on. Only a prune that succeeded is remembered, so a failing one is
+     * retried on the next request rather than leaving the table to grow until tomorrow —
+     * unbounded growth is the thing this exists to prevent.
+     */
+    private synchronized void prune(LocalDate today) {
+        if (today.equals(prunedFor)) {
+            return;
+        }
+        LocalDate cutoff = today.minusDays(1);
+        try {
+            int dropped = usage.deleteBefore(cutoff);
+            prunedFor = today;
+            if (dropped > 0) {
+                log.info("pruned {} ip_daily_usage rows from before {}", dropped, cutoff);
+            }
+        } catch (DataAccessException e) {
+            log.warn("could not prune ip_daily_usage: {}", e.getMessage());
+        }
     }
 }

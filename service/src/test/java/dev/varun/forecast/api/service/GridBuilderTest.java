@@ -105,9 +105,9 @@ class GridBuilderTest {
     void withNoticePreservesEverythingElse() {
         ForecastGrid grid = builder.build(corridor(), List.of(),
                 List.of(DayOfWeek.MONDAY), List.of(6), true);
-        ForecastGrid flagged = grid.withNotice("lookups_paused");
+        ForecastGrid flagged = grid.withNotice(ApiCode.LOOKUPS_PAUSED);
 
-        assertEquals("lookups_paused", flagged.notice());
+        assertEquals(ApiCode.LOOKUPS_PAUSED, flagged.notice());
         assertEquals(grid.buckets(), flagged.buckets());
         assertEquals(grid.partial(), flagged.partial());
         assertEquals(grid.id(), flagged.id());

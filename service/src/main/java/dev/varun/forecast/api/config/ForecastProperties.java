@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "forecast")
 public record ForecastProperties(Tomtom tomtom, Cache cache, Quota quota, Lookup lookup,
-        Search search, KillSwitch killSwitch, Edge edge) {
+        Search search, KillSwitch killSwitch, Edge edge, Privacy privacy) {
 
     public record Tomtom(String apiKey, String baseUrl) {
         /** No key configured is a normal state locally: the service serves cache only. */
@@ -29,6 +29,19 @@ public record ForecastProperties(Tomtom tomtom, Cache cache, Quota quota, Lookup
     public record Edge(String originSecret) {
         public boolean enforced() {
             return originSecret != null && !originSecret.isBlank();
+        }
+    }
+
+    /**
+     * What the per-IP counters are allowed to remember about a visitor.
+     *
+     * <p>{@code ipSecret} keys the HMAC that stands in for the address. It is
+     * configuration rather than a column because a key stored beside the hashes it keys
+     * protects nothing. Blank locally, where the counters are throwaway.
+     */
+    public record Privacy(String ipSecret) {
+        public boolean keyed() {
+            return ipSecret != null && !ipSecret.isBlank();
         }
     }
 

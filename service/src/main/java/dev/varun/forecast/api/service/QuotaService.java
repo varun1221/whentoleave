@@ -91,11 +91,6 @@ public class QuotaService {
         return Math.max(0, props.quota().dailyCeiling() - used);
     }
 
-    /** When today's budget refills. */
-    public Instant resetsAt() {
-        return day.resetsAt();
-    }
-
     public int dailyCeiling() {
         return props.quota().dailyCeiling();
     }

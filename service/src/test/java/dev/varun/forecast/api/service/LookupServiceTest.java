@@ -71,6 +71,7 @@ class LookupServiceTest extends DatabaseTest {
         assertEquals(15, grid.sampleCount());
         assertTrue(grid.partial(), "a user corridor is always a partial profile");
         assertNull(grid.notice(), "a full cache hit is not a degraded answer");
+        assertNull(grid.resetsAt(), "and so has no limit to wait out");
         assertEquals(150, quotas.remaining(), "no quota spent");
         assertEquals(5, perIp.remaining(Budget.LOOKUP, "10.0.0.1"),
                 "a cache hit must not cost the visitor a lookup");
@@ -155,6 +156,8 @@ class LookupServiceTest extends DatabaseTest {
         assertEquals(ApiCode.LOOKUPS_PAUSED, grid.notice());
         assertEquals(1, grid.sampleCount());
         assertEquals(150, quotas.remaining(), "the switch is checked before spending");
+        assertNull(grid.resetsAt(),
+                "the switch lifts when a human lifts it, not at midnight");
     }
 
     @Test
@@ -244,6 +247,42 @@ class LookupServiceTest extends DatabaseTest {
 
         assertEquals(ApiCode.RATE_LIMITED, grid.notice());
         assertEquals(1, grid.sampleCount());
+    }
+
+    /**
+     * §10.4: the banner says when the limit lifts. A degraded 200 carries the same
+     * reset time the 429 for the same limit would have, so a visitor with one cached
+     * bucket is not told less than a visitor with none.
+     */
+    @Test
+    void aRateLimitedGridSaysWhenTheVisitorsBudgetRefills() {
+        String ip = "10.0.0.17";
+        Corridor corridor = userCorridor("37.14,-122.14", "38.14,-121.14");
+        samples.save(new Sample(corridor.getId(), DayOfWeek.MONDAY, 6, 1800, 40_000,
+                Instant.now()));
+        for (int i = 0; i < 5; i++) {
+            perIp.tryConsume(Budget.LOOKUP, ip);
+        }
+
+        ForecastGrid grid = lookups.lookup("37.14,-122.14", "38.14,-121.14", ip);
+
+        assertEquals(ApiCode.RATE_LIMITED, grid.notice());
+        assertEquals(day.resetsAt(), grid.resetsAt());
+    }
+
+    @Test
+    void aQuotaExhaustedGridSaysWhenTheSharedBudgetRefills() {
+        Corridor corridor = userCorridor("37.15,-122.15", "38.15,-121.15");
+        samples.save(new Sample(corridor.getId(), DayOfWeek.MONDAY, 6, 1800, 40_000,
+                Instant.now()));
+        quotas.reserve(150);
+
+        ForecastGrid grid = lookups.lookup("37.15,-122.15", "38.15,-121.15", "10.0.0.18");
+
+        assertEquals(ApiCode.QUOTA_EXHAUSTED, grid.notice());
+        assertEquals(day.resetsAt(), grid.resetsAt());
+        assertEquals(5, perIp.remaining(Budget.LOOKUP, "10.0.0.18"),
+                "a global limit does not cost the visitor a lookup");
     }
 
     @Test

@@ -59,6 +59,7 @@ public class GridBuilder {
                 samples.size(),
                 Instant.now(),
                 buckets,
+                null,
                 null);
     }
 

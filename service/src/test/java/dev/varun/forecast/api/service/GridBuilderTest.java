@@ -103,11 +103,13 @@ class GridBuilderTest {
 
     @Test
     void withNoticePreservesEverythingElse() {
+        Instant resetsAt = Instant.parse("2026-09-18T07:00:00Z");
         ForecastGrid grid = builder.build(corridor(), List.of(),
                 List.of(DayOfWeek.MONDAY), List.of(6), true);
-        ForecastGrid flagged = grid.withNotice(ApiCode.LOOKUPS_PAUSED);
+        ForecastGrid flagged = grid.withNotice(ApiCode.RATE_LIMITED, resetsAt);
 
-        assertEquals(ApiCode.LOOKUPS_PAUSED, flagged.notice());
+        assertEquals(ApiCode.RATE_LIMITED, flagged.notice());
+        assertEquals(resetsAt, flagged.resetsAt());
         assertEquals(grid.buckets(), flagged.buckets());
         assertEquals(grid.partial(), flagged.partial());
         assertEquals(grid.id(), flagged.id());

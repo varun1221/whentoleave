@@ -105,7 +105,9 @@ public class LookupService {
         // Everything below this line can spend money, so the three guards sit here and
         // not in a servlet filter: a filter would charge cache hits too.
         if (!killSwitch.lookupsEnabled()) {
-            return degraded(corridor, fresh, hours, ApiCode.LOOKUPS_PAUSED,
+            // No reset time, here or in the 429: the switch ends when a human ends it,
+            // and a promised midnight would be a promise nothing keeps.
+            return degraded(corridor, fresh, hours, ApiCode.LOOKUPS_PAUSED, null,
                     () -> LookupsUnavailableException.lookupsPaused(quotas.remaining()));
         }
 
@@ -114,7 +116,7 @@ public class LookupService {
         // visitor therefore never touches the shared budget.
         Optional<Spend> spend = perIp.tryConsume(Budget.LOOKUP, clientIp);
         if (spend.isEmpty()) {
-            return degraded(corridor, fresh, hours, ApiCode.RATE_LIMITED,
+            return degraded(corridor, fresh, hours, ApiCode.RATE_LIMITED, day.resetsAt(),
                     () -> RateLimitedException.used("lookups",
                             perIp.dailyLimit(Budget.LOOKUP), day.resetsAt()));
         }
@@ -125,6 +127,7 @@ public class LookupService {
             // The visitor should not be charged for a global limit.
             perIp.refund(spend.get());
             return degraded(corridor, fresh, hours, ApiCode.QUOTA_EXHAUSTED,
+                    day.resetsAt(),
                     () -> LookupsUnavailableException.budgetSpent(quotas.remaining(),
                             day.resetsAt()));
         }
@@ -154,16 +157,23 @@ public class LookupService {
     /**
      * Serve what is cached, labelled with why it is not more. Only when there is nothing
      * cached at all does a limit become an error the visitor sees.
+     *
+     * <p>The notice and the exception carry the same reason and the same reset time, so
+     * how much of the corridor happened to be cached changes how much the visitor is
+     * shown, never what they are told about the limit.
+     *
+     * @param resetsAt when the limit lifts, or null for one with no scheduled end
      */
     private ForecastGrid degraded(Corridor corridor, List<Sample> fresh,
-            List<Integer> hours, ApiCode notice,
+            List<Integer> hours, ApiCode notice, Instant resetsAt,
             Supplier<RuntimeException> ifEmpty) {
         if (fresh.isEmpty()) {
             throw ifEmpty.get();
         }
         log.info("serving {} cached samples for corridor={} ({})", fresh.size(),
                 corridor.getId(), notice);
-        return grids.build(corridor, fresh, WEEKDAYS, hours, true).withNotice(notice);
+        return grids.build(corridor, fresh, WEEKDAYS, hours, true)
+                .withNotice(notice, resetsAt);
     }
 
     @Transactional

@@ -37,14 +37,15 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 
 | Piece | State |
 |---|---|
-| Java 21 sampler (`sweep`, `aggregate`, `probe`, `spread`) | Working, 30 unit tests green |
+| Java 21 sampler (`sweep`, `aggregate`, `probe`, `spread`) | Working, 32 unit tests green |
 | Sweeps run | Three: 2026-09-05, 09-12, 09-13 — 1,365 calls, 1,365 rows, zero failures |
 | `data/samples/*.jsonl` | 273 rows per route across 5 routes |
 | `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 3` |
 | Weekly cron | Ran unattended on 2026-09-13 and committed its own data |
 | Phase 2 service | Steps 8–12 done locally: schema, seed import, lookup, limits, search |
-| Tests | 205 passing — 32 sampler, 154 service, 19 web |
-| React heatmap, departure curve, leave-by panel | Working, 19 unit tests green |
+| Tests | 285 passing — 32 sampler, 182 service, 71 web |
+| React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
+| Lookup panel (step 15) | Built; every notice and 429 state checked by hand against a local service, no click-level tests |
 | `npm run build` | Succeeds |
 | Weekly GitHub Actions workflow | Written, **never run** |
 
@@ -55,9 +56,7 @@ for all five corridors with no interaction required.
 
 Phase 1, in order:
 
-1. **Push to GitHub.** The repository currently has no commits and no remote. Nothing
-   downstream can happen until it does: the sampler workflow cannot run, and Cloudflare
-   Pages has nothing to build.
+1. ~~**Push to GitHub.**~~ Done — `main` is on `varun1221/forecastapp`.
 2. **Set the `TOMTOM_API_KEY` repository secret**, then run the `sample` workflow once
    with `workflow_dispatch` to confirm it works in CI rather than only on a laptop.
 3. **Deploy to Cloudflare Pages.** Root directory `web`, build command `npm run build`,
@@ -68,11 +67,21 @@ None of that waits on more data. The grid is already complete, and more weeks of
 sampling would not make it more complete — see
 [what re-sampling actually buys](#what-re-sampling-actually-buys) for why.
 
-Phase 2 has not been started. No `service/` module exists yet. Its design is specified
-in full in [`traffic-forecast-spec.md`](traffic-forecast-spec.md) §9, and the open
-question it has to answer first is hosting: Cloud Run requires a GCP billing account
-with a card on file, which is the same blocker that moved this project off Google's
-routing API in the first place.
+Phase 2, in order:
+
+1. **Deploy the service to Cloud Run** (spec §9.7) as a plain JVM jar, with the origin
+   secret and the Cloudflare Transform Rule that make the per-IP limits trustworthy —
+   without that header the service cannot tell a forged `CF-Connecting-IP` from a real
+   one. The open question is hosting: Cloud Run requires a GCP billing account with a
+   card on file, the same blocker that moved this project off Google's routing API in
+   the first place.
+2. **Native image, last.** Cold start measured before and after, both numbers here.
+3. **Point the frontend at the deployed API** by setting `VITE_API_BASE` in the Pages
+   environment. Until then the lookup panel hides itself, which is the correct behaviour
+   for a site whose backend is not up yet.
+
+The service and the lookup panel are written and green locally. What has not happened is
+a request served over the internet.
 
 ---
 
@@ -215,14 +224,18 @@ The site:
 cd web
 npm install
 npm run dev         # http://localhost:5173
-npm test            # 19 tests
+npm test            # 71 tests
 ```
+
+`npm run dev` proxies `/api` to `http://localhost:8080`, so the lookup panel appears as
+soon as the service (below) is running and hides itself when it is not. In production the
+API is on its own hostname, set at build time as `VITE_API_BASE`.
 
 Tests:
 
 ```bash
-./gradlew build              # sampler + service, 186 tests
-cd web && npm test           # 19 tests
+./gradlew build              # sampler + service, 214 tests
+cd web && npm test           # 71 tests
 ```
 
 The service tests need a Postgres to run against — a one-time setup:
@@ -252,6 +265,20 @@ Run the Phase 2 service locally:
 ./gradlew :service:bootRun --args='--import-seed'   # one-off: load the JSONL history
 ./gradlew :service:bootRun                        # then serve on :8080
 ```
+
+With no `TOMTOM_API_KEY` set, the service serves cache only and never spends quota: a
+cold corridor comes back as an empty grid and address search returns nothing, so paste a
+`lat,lon` pair into the lookup panel instead of searching. The degraded states are
+reachable without a key by poking the two control tables:
+
+```bash
+psql -d forecast -c "UPDATE service_setting SET value='false' WHERE key='lookups_enabled'"
+psql -d forecast -c "UPDATE daily_quota SET calls_made=150 WHERE day=current_date"
+```
+
+A corridor with some cached buckets then answers 200 with a `notice` and, for the limits
+that lift at midnight, a `resetsAt`; one with nothing cached answers 429 with the same
+code. The kill switch is cached for 30 seconds, so a flip takes that long to show up.
 
 ---
 

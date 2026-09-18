@@ -10,6 +10,7 @@ import { colorFor, inkFor } from "../lib/colorScale.js";
  */
 export default function Heatmap({
   route,
+  days = DAYS,
   hours,
   min,
   max,
@@ -43,7 +44,8 @@ export default function Heatmap({
             ))}
           </div>
 
-          {DAYS.map((day) => {
+          {/* The days this grid has, not a fixed week: a lookup is weekdays only. */}
+          {days.map((day) => {
             const isSelected = day === selectedDay;
             return (
               <Row

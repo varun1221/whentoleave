@@ -358,6 +358,153 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+/* ------------------------------------------------------------ lookup panel */
+
+.lookup-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.place-field {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.place-field label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.place-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+}
+
+.place-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Over the content rather than in the flow, so the panel does not jump a row taller
+   every time a suggestion list opens. */
+.suggestions {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.suggestion {
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.suggestion.is-active {
+  background: var(--grid);
+  color: var(--text-primary);
+}
+
+.lookup-submit {
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  font-size: 0.87rem;
+  cursor: pointer;
+}
+
+.lookup-submit:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.quota {
+  display: flex;
+  gap: 1.1rem;
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.quota dt {
+  color: var(--text-muted);
+}
+
+.quota dd {
+  margin: 0.1rem 0 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-paused {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* A stated limit reads as intentional design, so the banner is a note, not an alarm:
+   the same box for both tones, with the accent reserved for something actually wrong. */
+.banner {
+  margin: 0 0 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.banner.is-limit {
+  border-left: 3px solid var(--text-muted);
+}
+
+.banner.is-error {
+  border-left: 3px solid var(--accent);
+}
+
+.field-hint {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.badge {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  vertical-align: 0.15em;
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------------ states */
 
 .toggle {
@@ -404,6 +551,11 @@ h2 {
   }
   .panel {
     padding: 0.9rem;
+  }
+  /* Three columns of address field do not fit a phone; stack them and let the button
+     span the width rather than squashing the inputs. */
+  .lookup-form {
+    grid-template-columns: 1fr;
   }
 }
 

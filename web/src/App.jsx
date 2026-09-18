@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Heatmap from "./components/Heatmap.jsx";
 import ScaleLegend from "./components/ScaleLegend.jsx";
 import RoutePicker from "./components/RoutePicker.jsx";
 import DepartureCurve from "./components/DepartureCurve.jsx";
 import LeaveByPanel from "./components/LeaveByPanel.jsx";
+import LookupPanel from "./components/LookupPanel.jsx";
+import Banner from "./components/Banner.jsx";
 import {
   EMPTY_DARK,
   EMPTY_LIGHT,
   RAMP_DARK,
   RAMP_LIGHT,
 } from "./lib/colorScale.js";
-import { DAYS, DAY_LABEL, formatDate, hourLabel } from "./lib/format.js";
+import { getQuota } from "./lib/api.js";
+import { dayWithin, gridStats, spreadPercent } from "./lib/grid.js";
+import { noticeFor } from "./lib/notices.js";
+import { DAY_LABEL, formatDate, hourLabel } from "./lib/format.js";
+
+/** The id the looked-up corridor takes in the picker, alongside the seeded slugs. */
+const LOOKUP_ID = "your-lookup";
 
 /** Tracks the viewer's theme so the heatmap uses the ramp built for that surface. */
 function useDarkMode() {
@@ -29,13 +37,38 @@ function useDarkMode() {
   return dark;
 }
 
+/**
+ * Is the lookup service there?
+ *
+ * Phase 1 is a complete site on its own, so an absent backend is a normal state: the
+ * seeded heatmaps render and the lookup panel is simply not offered (§10.4). That is why
+ * this probe never sets the page-level error — a failed quota read hides one panel, it
+ * does not break the page.
+ */
+function useLookupApi() {
+  const [quota, setQuota] = useState(null);
+
+  // Only the first probe decides whether the panel exists. A later refresh that fails
+  // keeps the counters it last read, because unmounting the panel mid-interaction would
+  // take the banner explaining a limit down with it — the visitor would see their lookup
+  // vanish with no reason given, which is the failure §10.4 is about.
+  const refresh = useCallback(() => getQuota().then(setQuota).catch(() => {}), []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  return { quota, refresh };
+}
+
 export default function App() {
   const [forecasts, setForecasts] = useState(null);
   const [error, setError] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [selectedDay, setSelectedDay] = useState("WEDNESDAY");
   const [showNumbers, setShowNumbers] = useState(true);
+  const [lookup, setLookup] = useState(null);
   const dark = useDarkMode();
+  const { quota, refresh: refreshQuota } = useLookupApi();
 
   useEffect(() => {
     let cancelled = false;
@@ -55,37 +88,28 @@ export default function App() {
     };
   }, []);
 
+  // The looked-up grid is the same shape as a seeded one, so it joins the same picker
+  // and flows through the same heatmap, curve and leave-by panel. It carries an id and a
+  // name because the API has neither for a corridor nobody named.
+  const routes = useMemo(() => {
+    const seeded = forecasts?.routes ?? [];
+    if (!lookup) return seeded;
+    return [...seeded, { ...lookup.grid, id: LOOKUP_ID, name: lookup.name }];
+  }, [forecasts, lookup]);
+
   const route = useMemo(
-    () => forecasts?.routes.find((r) => r.id === selectedRouteId) ?? null,
-    [forecasts, selectedRouteId]
+    () => routes.find((r) => r.id === selectedRouteId) ?? null,
+    [routes, selectedRouteId]
   );
 
-  // Derived, not mirrored into state — the range and the extremes are functions of
-  // the selected route and nothing else.
-  const stats = useMemo(() => {
-    if (!route) return null;
-    let min = Infinity;
-    let max = -Infinity;
-    let best = null;
-    let worst = null;
-    const hours = route.buckets.MONDAY.map((b) => b.slotHour);
+  // Derived, not mirrored into state — the range and the extremes are functions of the
+  // selected route and nothing else.
+  const stats = useMemo(() => (route ? gridStats(route) : null), [route]);
 
-    for (const day of DAYS) {
-      for (const bucket of route.buckets[day]) {
-        if (bucket.medianSeconds == null) continue;
-        if (bucket.medianSeconds < min) {
-          min = bucket.medianSeconds;
-          best = { day, slotHour: bucket.slotHour };
-        }
-        if (bucket.medianSeconds > max) {
-          max = bucket.medianSeconds;
-          worst = { day, slotHour: bucket.slotHour };
-        }
-      }
-    }
-    if (best == null) return { hours, min: 0, max: 0, best: null, worst: null };
-    return { hours, min, max, best, worst };
-  }, [route]);
+  const onLookupResult = useCallback(({ grid, name }) => {
+    setLookup({ grid, name });
+    setSelectedRouteId(LOOKUP_ID);
+  }, []);
 
   if (error) {
     return (
@@ -111,8 +135,15 @@ export default function App() {
   const ramp = dark ? RAMP_DARK : RAMP_LIGHT;
   const emptyColor = dark ? EMPTY_DARK : EMPTY_LIGHT;
   const accent = ramp[Math.floor(ramp.length / 2)];
-  const spread =
-    stats.max > 0 ? Math.round((100 * (stats.max - stats.min)) / stats.min) : 0;
+  const spread = spreadPercent(stats);
+  // A weekday-only lookup has no Saturday row to select, so the day the panels below
+  // read is clamped to one this grid actually has.
+  const shownDay = dayWithin(stats, selectedDay) ?? selectedDay;
+  // A degraded grid says why, and when the limit behind it lifts.
+  const notice = noticeFor(route.notice, {
+    dailyLimit: quota?.yourDailyLimit,
+    resetsAt: route.resetsAt,
+  });
 
   return (
     <main className="shell">
@@ -125,7 +156,7 @@ export default function App() {
       </header>
 
       <RoutePicker
-        routes={forecasts.routes}
+        routes={routes}
         selectedRouteId={selectedRouteId}
         onSelect={setSelectedRouteId}
       />
@@ -133,11 +164,23 @@ export default function App() {
       <section className="panel">
         <div className="panel-head">
           <div>
-            <h2>{route.name}</h2>
+            <h2>
+              {route.name}
+              {route.partial && <span className="badge">partial profile</span>}
+            </h2>
             <p className="subhead">
-              {(route.distanceMeters / 1000).toFixed(1)} km · fastest{" "}
-              {Math.round(stats.min / 60)} min · slowest {Math.round(stats.max / 60)} min
-              {spread > 0 && <> · {spread}% spread</>}
+              {route.distanceMeters != null && (
+                <>{(route.distanceMeters / 1000).toFixed(1)} km · </>
+              )}
+              {stats.empty ? (
+                <>no samples yet</>
+              ) : (
+                <>
+                  fastest {Math.round(stats.min / 60)} min · slowest{" "}
+                  {Math.round(stats.max / 60)} min
+                  {spread > 0 && <> · {spread}% spread</>}
+                </>
+              )}
             </p>
           </div>
           <label className="toggle">
@@ -150,8 +193,19 @@ export default function App() {
           </label>
         </div>
 
+        <Banner notice={notice} />
+
+        {route.partial && (
+          <p className="hint">
+            A looked-up corridor is sampled at weekday peak hours only — five days × nine
+            hours instead of the full 91-cell grid, which would spend the day’s shared
+            budget on a single lookup.
+          </p>
+        )}
+
         <Heatmap
           route={route}
+          days={stats.days}
           hours={stats.hours}
           min={stats.min}
           max={stats.max}
@@ -159,7 +213,7 @@ export default function App() {
           worst={stats.worst}
           ramp={ramp}
           emptyColor={emptyColor}
-          selectedDay={selectedDay}
+          selectedDay={shownDay}
           onSelectDay={setSelectedDay}
           showNumbers={showNumbers}
         />
@@ -169,16 +223,25 @@ export default function App() {
         </p>
       </section>
 
+      {/* Only once the service has answered: an unreachable backend offers no form. */}
+      {quota && (
+        <LookupPanel
+          quota={quota}
+          onResult={onLookupResult}
+          onQuotaChange={refreshQuota}
+        />
+      )}
+
       <section className="panel">
         <div className="panel-head">
           <h2>
-            {DAY_LABEL[selectedDay]} · departure curve
+            {DAY_LABEL[shownDay]} · departure curve
           </h2>
         </div>
-        <DepartureCurve route={route} day={selectedDay} accent={accent} />
+        <DepartureCurve route={route} day={shownDay} accent={accent} />
       </section>
 
-      <LeaveByPanel route={route} day={selectedDay} />
+      <LeaveByPanel route={route} day={shownDay} />
 
       <footer className="colophon">
         <p>

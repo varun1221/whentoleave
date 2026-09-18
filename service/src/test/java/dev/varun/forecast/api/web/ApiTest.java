@@ -2,6 +2,7 @@ package dev.varun.forecast.api.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -78,7 +79,14 @@ class ApiTest extends DatabaseTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value("sjsu-sf"))
                 .andExpect(jsonPath("$.partial").value(false))
+                // Absent, not null: a healthy grid has neither a notice nor a limit to
+                // wait out, and NON_NULL is what makes these two assertions mean it.
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("\"notice\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("\"resetsAt\""))))
                 .andExpect(jsonPath("$.notice").doesNotExist())
+                .andExpect(jsonPath("$.resetsAt").doesNotExist())
                 .andExpect(jsonPath("$.buckets.MONDAY", org.hamcrest.Matchers.hasSize(13)))
                 .andExpect(jsonPath("$.buckets.WEDNESDAY[2].slotHour").value(8))
                 .andExpect(jsonPath("$.buckets.WEDNESDAY[2].medianSeconds").value(5295))
@@ -174,7 +182,33 @@ class ApiTest extends DatabaseTest {
                         .content(UNCACHED_LOOKUP))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.notice").value("lookups_paused"))
-                .andExpect(jsonPath("$.sampleCount").value(1));
+                .andExpect(jsonPath("$.sampleCount").value(1))
+                .andExpect(jsonPath("$.resetsAt").doesNotExist());
+    }
+
+    /**
+     * §10.4: "429 → ... with the reset time". A degraded 200 is the same limit with a
+     * partial cache behind it, so it says when the limit lifts too — otherwise the
+     * banner would have to fetch /api/quota to finish its own sentence.
+     */
+    @Test
+    void aDegradedLookupCarriesTheResetTimeOfTheLimitThatDegradedIt() throws Exception {
+        String ip = "198.51.100.33";
+        Corridor corridor = corridors.save(
+                new Corridor(null, "37.91,-122.91", "38.91,-121.91", null, false));
+        samples.save(new Sample(corridor.getId(), DayOfWeek.MONDAY, 6, 1800, 40_000,
+                Instant.now()));
+        for (int i = 0; i < 5; i++) {
+            perIp.tryConsume(DailyIpLimiter.Budget.LOOKUP, ip);
+        }
+
+        mvc.perform(post("/api/lookup")
+                        .header("CF-Connecting-IP", ip)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UNCACHED_LOOKUP))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notice").value("rate_limited"))
+                .andExpect(jsonPath("$.resetsAt").value(day.resetsAt().toString()));
     }
 
     @Test

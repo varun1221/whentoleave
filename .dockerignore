@@ -1,0 +1,22 @@
+# The build context is the repo root, so most of the repo is not part of the image.
+# .env first and deliberately: a gitignored file is still in the build context.
+.env
+*.local
+
+.git
+.github
+.gradle
+build
+*/build
+web
+data
+config
+docs
+*.md
+.DS_Store
+
+# The sampler is a separate Phase 1 process and none of it belongs in the service image.
+# Its build file is the exception: settings.gradle.kts includes the project, so Gradle
+# wants to configure it even when only :service:bootJar is asked for.
+sampler/*
+!sampler/build.gradle.kts

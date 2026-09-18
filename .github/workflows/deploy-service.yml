@@ -1,0 +1,117 @@
+name: deploy-service
+
+# Spec §9.7. On push to main touching the service, build the image, push it to Artifact
+# Registry, and deploy to Cloud Run with the §7 flags. Authentication is Workload Identity
+# Federation: GitHub holds no long-lived service account key, only the identity of this
+# repository, which cannot be copied out of a log.
+#
+# What this needs configured once, before the first run — see README, "Deploying the
+# service". Repository *variables* (not secrets, none of these are credentials):
+#   GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, DB_USER
+# Everything sensitive lives in GCP Secret Manager and is named below, never passed
+# through Actions: forecast-db-url, forecast-db-password, forecast-tomtom-key,
+# forecast-origin-secret, forecast-ip-hash-secret.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "service/**"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
+      - ".github/workflows/deploy-service.yml"
+  workflow_dispatch:
+
+# One deploy at a time, and never cancelled halfway: a cancelled `gcloud run deploy`
+# leaves a revision half-rolled-out, which is worse than a queue.
+concurrency:
+  group: deploy-service
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Required for Workload Identity Federation to mint the OIDC token.
+  id-token: write
+
+env:
+  SERVICE: forecast-service
+  # The Artifact Registry repository the image lives in, created once by the wizard.
+  AR_REPO: forecast
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Dormant until GCP exists. Without this the first push of this file fails at the auth
+    # step on a repository that has no project yet, which reads as a broken pipeline rather
+    # than one waiting for an account. Set the variables below and it arms itself.
+    if: vars.GCP_PROJECT_ID != ''
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+          echo "IMAGE=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/$AR_REPO/$SERVICE" \
+            >> "$GITHUB_ENV"
+
+      # Tagged with the commit rather than only :latest, so a revision can be traced back
+      # to a diff and a rollback names an image instead of guessing.
+      - name: Build and push image
+        run: |
+          docker build -f service/Dockerfile -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      # The flags are §7's, and they are the cost guardrail: max-instances=2 caps what a
+      # traffic spike can cost, min-instances=0 is what makes the free tier free, and the
+      # region list is the only one where that tier exists at all.
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE:${{ github.sha }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --max-instances=2 \
+            --min-instances=0 \
+            --cpu=1 \
+            --memory=512Mi \
+            --set-env-vars "DB_USER=${{ vars.DB_USER }}" \
+            --set-secrets "DB_URL=forecast-db-url:latest,DB_PASSWORD=forecast-db-password:latest,TOMTOM_API_KEY=forecast-tomtom-key:latest,ORIGIN_SECRET=forecast-origin-secret:latest,IP_HASH_SECRET=forecast-ip-hash-secret:latest" \
+            --quiet
+          echo "url=$(gcloud run services describe "$SERVICE" \
+            --region "${{ vars.GCP_REGION }}" --format 'value(status.url)')" >> "$GITHUB_OUTPUT"
+
+      # Health is exempt from the origin secret, which is exactly why it is the probe path
+      # Cloud Run uses and the one thing reachable directly.
+      - name: Health check
+        run: |
+          curl -fsS --retry 6 --retry-delay 5 --retry-all-errors \
+            "${{ steps.deploy.outputs.url }}/actuator/health" | tee /dev/stderr | grep -q '"status":"UP"'
+
+      # Issue #6's verification, automated: the *.run.app URL bypasses Cloudflare, so a
+      # request to it carries no X-Origin-Secret and must be refused. A 200 here means the
+      # origin secret is not set, and therefore that anyone can reach the origin directly
+      # and forge CF-Connecting-IP to mint themselves unlimited lookups. The deploy has
+      # already happened by this point — this step failing is the alarm, not a rollback.
+      - name: The origin must refuse a request that skipped Cloudflare
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' "${{ steps.deploy.outputs.url }}/api/quota")
+          echo "GET /api/quota directly on Cloud Run → $code"
+          if [ "$code" != "403" ]; then
+            echo "::error::Expected 403, got $code. forecast-origin-secret is unset or empty," \
+                 "so OriginSecretFilter is trusting CF-Connecting-IP from any caller and the" \
+                 "per-IP limits can be bypassed. See issue #6."
+            exit 1
+          fi

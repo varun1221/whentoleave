@@ -48,6 +48,7 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | Lookup panel (step 15) | Built; every notice and 429 state checked by hand against a local service, no click-level tests |
 | `npm run build` | Succeeds |
 | Weekly GitHub Actions workflow | Written, **never run** |
+| `deploy-service.yml` + `service/Dockerfile` | Written, **never run**; no GCP account yet |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -69,12 +70,12 @@ sampling would not make it more complete — see
 
 Phase 2, in order:
 
-1. **Deploy the service to Cloud Run** (spec §9.7) as a plain JVM jar, with the origin
-   secret and the Cloudflare Transform Rule that make the per-IP limits trustworthy —
-   without that header the service cannot tell a forged `CF-Connecting-IP` from a real
-   one. The open question is hosting: Cloud Run requires a GCP billing account with a
-   card on file, the same blocker that moved this project off Google's routing API in
-   the first place.
+1. **Deploy the service to Cloud Run** (spec §9.7) as a plain JVM jar. The pipeline is
+   written — `service/Dockerfile` and `deploy-service.yml`, described under
+   [Deploying the service](#deploying-the-service) — and waits on one thing: Cloud Run
+   requires a GCP billing account with a card on file, the same blocker that moved this
+   project off Google's routing API in the first place. The image has never been built and
+   the workflow has never run.
 2. **Native image, last.** Cold start measured before and after, both numbers here.
 3. **Point the frontend at the deployed API** by setting `VITE_API_BASE` in the Pages
    environment. Until then the lookup panel hides itself, which is the correct behaviour
@@ -279,6 +280,73 @@ psql -d forecast -c "UPDATE daily_quota SET calls_made=150 WHERE day=current_dat
 A corridor with some cached buckets then answers 200 with a `notice` and, for the limits
 that lift at midnight, a `resetsAt`; one with nothing cached answers 429 with the same
 code. The kill switch is cached for 30 seconds, so a flip takes that long to show up.
+
+---
+
+## Deploying the service
+
+`deploy-service.yml` runs on every push to `main` that touches `service/**`: build the
+image, push it to Artifact Registry, `gcloud run deploy` with the §7 flags. It holds **no
+long-lived credential** — GitHub authenticates as this repository via Workload Identity
+Federation, and everything secret lives in GCP Secret Manager, so nothing sensitive
+passes through Actions at all.
+
+That means some one-time setup outside the repo. In GCP, once:
+
+```bash
+PROJECT=your-project-id
+REGION=us-central1              # or us-east1 / us-west1 — the free tier exists nowhere else
+
+gcloud artifacts repositories create forecast \
+  --repository-format=docker --location="$REGION"
+
+# The secrets the service reads. Generate the origin secret and the IP hash key here;
+# they exist nowhere else and nothing needs to know their values.
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create forecast-origin-secret  --data-file=-
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create forecast-ip-hash-secret --data-file=-
+printf '%s' "$TOMTOM_API_KEY"         | gcloud secrets create forecast-tomtom-key     --data-file=-
+printf '%s' 'jdbc:postgresql://…neon.tech/forecast?sslmode=require' \
+                                      | gcloud secrets create forecast-db-url         --data-file=-
+printf '%s' "$NEON_PASSWORD"          | gcloud secrets create forecast-db-password    --data-file=-
+```
+
+Then two service accounts, which is the detail worth getting right first time:
+
+- the **deploy** account GitHub impersonates needs `run.admin`,
+  `artifactregistry.writer` and `iam.serviceAccountUser`;
+- the **runtime** account the revision runs as (the default compute account, unless you
+  pass `--service-account`) needs `secretmanager.secretAccessor` — it is what actually
+  reads the five secrets, and `gcloud run deploy` checks that at deploy time, so granting
+  the deploy account instead fails with a permissions error that names the wrong
+  identity.
+
+Plus a Workload Identity pool whose provider is restricted to this repository — the
+restriction is the point, since without it any repository could mint the same token.
+Finally, five **repository variables**
+(Settings → Secrets and variables → Actions → Variables) — none are credentials:
+
+| Variable | Example |
+|---|---|
+| `GCP_PROJECT_ID` | `forecast-470112` |
+| `GCP_REGION` | `us-central1` |
+| `GCP_WIF_PROVIDER` | `projects/123456789/locations/global/workloadIdentityPools/github/providers/forecastapp` |
+| `GCP_DEPLOY_SA` | `deploy@forecast-470112.iam.gserviceaccount.com` |
+| `DB_USER` | `forecast` |
+
+**The seeded history is a separate, one-off import**, not part of the image: point the
+importer at Neon from a laptop, once, rather than shipping `data/` to production.
+
+```bash
+DB_URL=... DB_USER=... DB_PASSWORD=... ./gradlew :service:bootRun --args='--import-seed'
+```
+
+Two things the deploy cannot do for itself, both in issue #6: a **Cloudflare Transform
+Rule** on the API hostname setting `X-Origin-Secret` to the value of
+`forecast-origin-secret`, and `VITE_API_BASE` set to that hostname in the Pages
+environment. The workflow's last step fails loudly until the first of those exists — it
+asks Cloud Run directly for `/api/quota` and expects a 403, because a 200 there means the
+origin is trusting `CF-Connecting-IP` from anyone and the per-IP limits can be bypassed by
+sending a different one each time.
 
 ---
 

@@ -38,17 +38,17 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | Piece | State |
 |---|---|
 | Java 21 sampler (`sweep`, `aggregate`, `probe`, `spread`) | Working, 32 unit tests green |
-| Sweeps run | Three: 2026-09-05, 09-12, 09-13 — 1,365 calls, 1,365 rows, zero failures |
-| `data/samples/*.jsonl` | 273 rows per route across 5 routes |
-| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 3` |
-| Weekly cron | Ran unattended on 2026-09-13 and committed its own data |
+| Sweeps run | Four: 2026-09-05, 09-12, 09-13, 09-20 — 1,820 calls, 1,820 rows, zero failures |
+| `data/samples/*.jsonl` | 364 rows per route across 5 routes |
+| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 4` |
+| Weekly `sample` workflow | Two manual runs on 2026-09-12, then unattended on 09-13 and 09-20, committing its own data each time |
 | Phase 2 service | Steps 8–12 done locally: schema, seed import, lookup, limits, search |
-| Tests | 285 passing — 32 sampler, 182 service, 71 web |
+| Tests | 292 passing — 32 sampler, 182 service, 78 web |
 | React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
-| Lookup panel (step 15) | Built; every notice and 429 state checked by hand against a local service, no click-level tests |
+| Lookup panel (step 15) | Built; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
-| Weekly GitHub Actions workflow | Written, **never run** |
-| `deploy-service.yml` + `service/Dockerfile` | Written, **never run**; no GCP account yet |
+| Native image (step 14) | Configured — GraalVM plugin, reflection hints, `Dockerfile.native` — and **never built**: see below |
+| `deploy-service.yml` + both Dockerfiles | Written, **never run**; no GCP account yet |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -58,11 +58,13 @@ for all five corridors with no interaction required.
 Phase 1, in order:
 
 1. ~~**Push to GitHub.**~~ Done — `main` is on `varun1221/forecastapp`.
-2. **Set the `TOMTOM_API_KEY` repository secret**, then run the `sample` workflow once
-   with `workflow_dispatch` to confirm it works in CI rather than only on a laptop.
+2. ~~**Set the `TOMTOM_API_KEY` repository secret** and run the `sample` workflow in
+   CI.~~ Done — secret set 2026-09-12, and the workflow has run three times since.
 3. **Deploy to Cloudflare Pages.** Root directory `web`, build command `npm run build`,
    output directory `dist`, with `NODE_VERSION` pinned in the Pages environment.
-4. **Point the domain.** Registered at GoDaddy, nameservers moved to Cloudflare.
+4. **Point the domain.** Register it, then move its nameservers to Cloudflare — the zone
+   has to live there, because the Transform Rule that step 13 depends on is a zone
+   feature and a domain merely pointed at Pages would not have one.
 
 None of that waits on more data. The grid is already complete, and more weeks of
 sampling would not make it more complete — see
@@ -74,9 +76,16 @@ Phase 2, in order:
    written — `service/Dockerfile` and `deploy-service.yml`, described under
    [Deploying the service](#deploying-the-service) — and waits on one thing: Cloud Run
    requires a GCP billing account with a card on file, the same blocker that moved this
-   project off Google's routing API in the first place. The image has never been built and
-   the workflow has never run.
-2. **Native image, last.** Cold start measured before and after, both numbers here.
+   project off Google's routing API in the first place. The jar image builds on a laptop;
+   what has never happened is a push to Artifact Registry, and the workflow has never run.
+2. **Native image, last.** Configured but not yet built: the GraalVM plugin, the
+   reflection hints every Jackson-bound record needs, and `service/Dockerfile.native`
+   are all in place, and Spring's AOT processing runs clean. The compile itself is what
+   is missing — `native-image`'s static analysis was OOM-killed (exit 137) at 4m53s on a
+   laptop with 8GB of RAM, of which the Docker VM can have less than half. It wants a
+   machine with more memory than this one has, so the honest place to build it is CI.
+   Cold start measured before and after, both numbers here, once it has been built
+   somewhere that can build it.
 3. **Point the frontend at the deployed API** by setting `VITE_API_BASE` in the Pages
    environment. Until then the lookup panel hides itself, which is the correct behaviour
    for a site whose backend is not up yet.
@@ -94,11 +103,11 @@ it is worth reporting the answer rather than asserting it. From the committed da
 
 | Corridor | Distance | Best | Worst | Spread |
 |---|---|---|---|---|
-| SF Financial District → Downtown Oakland | 16.8 km | 17 min, Fri 06:00 | 36 min, Wed 17:00 | **107%** |
-| San Jose → Palo Alto | 28.3 km | 22 min, Sun 06:00 | 43 min, Tue 08:00 | **95%** |
+| SF Financial District → Downtown Oakland | 16.8 km | 17 min, Sat 06:00 | 36 min, Wed 17:00 | **108%** |
+| San Jose → Palo Alto | 28.3 km | 22 min, Sun 06:00 | 43 min, Tue 08:00 | **94%** |
 | Walnut Creek → SF Financial District | 38.2 km | 29 min, Sun 06:00 | 52 min, Wed 08:00 | **80%** |
 | Fremont → Mountain View | 33.6 km | 24 min, Sun 06:00 | 42 min, Wed 08:00 | **74%** |
-| SJSU → SF Financial District | 87.1 km | 59 min, Sat 06:00 | 97 min, Thu 17:00 | **63%** |
+| SJSU → SF Financial District | 87.1 km | 59 min, Sun 06:00 | 97 min, Thu 17:00 | **66%** |
 
 The worst corridor more than doubles in cost depending on when you leave. That is the
 whole product in one table.
@@ -290,6 +299,12 @@ image, push it to Artifact Registry, `gcloud run deploy` with the §7 flags. It 
 long-lived credential** — GitHub authenticates as this repository via Workload Identity
 Federation, and everything secret lives in GCP Secret Manager, so nothing sensitive
 passes through Actions at all.
+
+Which of the two images it builds is a switch, not a rewrite: `FLAVOR` defaults to `jar`,
+a `workflow_dispatch` can pick `native` for one run, and the repository variable
+`SERVICE_FLAVOR` makes that the standing choice. The default is the jar because that is
+the path verified over HTTP — §9.6 puts the native image strictly after a working deploy,
+and a switch keeps that ordering from being an accident of which file the workflow names.
 
 That means some one-time setup outside the repo. In GCP, once:
 

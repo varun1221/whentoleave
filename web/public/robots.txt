@@ -1,0 +1,9 @@
+# This site is a link on a résumé, not a destination to be found. Crawling it serves
+# nobody: there is one page, it is about five corridors in the Bay Area, and the people
+# meant to see it arrive by clicking a link they were handed.
+#
+# robots.txt asks politely and is obeyed by the crawlers that matter. The `_headers` file
+# beside this one sends X-Robots-Tag: noindex, which is the half that actually keeps the
+# URL out of a results page even when something links to it.
+User-agent: *
+Disallow: /

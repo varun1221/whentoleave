@@ -1,0 +1,21 @@
+# Cloudflare Pages reads this file from the build output and applies the headers to
+# matching paths.
+#
+# noindex rather than robots.txt alone: a disallowed page can still be listed in search
+# results when another site links to it, because the crawler honours the disallow and
+# indexes the URL anyway. This header is what says "do not list this at all", and it
+# reaches crawlers that never fetch robots.txt.
+/*
+  X-Robots-Tag: noindex, nofollow
+  # The page loads its own bundle and one JSON file and nothing else. Saying so means a
+  # stray injected script has nowhere to call home.
+  #
+  # PHASE 2 WILL BREAK ON THIS. When VITE_API_BASE points at api.whentoleave.me, every
+  # lookup is a cross-origin fetch, and connect-src falls back to default-src — 'self' —
+  # so the browser blocks it and the panel reports an unreachable service. Add
+  # `connect-src 'self' https://api.whentoleave.me;` here in the same change that sets
+  # VITE_API_BASE.
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+  # Referrers leak where a visitor came from. This site sends none.
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff

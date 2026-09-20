@@ -22,6 +22,12 @@ on:
       - "gradlew"
       - ".github/workflows/deploy-service.yml"
   workflow_dispatch:
+    inputs:
+      flavor:
+        description: "Which image to build"
+        type: choice
+        options: [jar, native]
+        default: jar
 
 # One deploy at a time, and never cancelled halfway: a cancelled `gcloud run deploy`
 # leaves a revision half-rolled-out, which is worse than a queue.
@@ -38,11 +44,18 @@ env:
   SERVICE: forecast-service
   # The Artifact Registry repository the image lives in, created once by the wizard.
   AR_REPO: forecast
+  # Which of the two Dockerfiles builds the image. `jar` is the default because it is the
+  # path step 13 verifies over HTTP, and §9.6 puts the native image strictly after that: a
+  # workflow_dispatch tries `native` once, and the repository variable SERVICE_FLAVOR
+  # makes it the standing choice only when a native revision has served real traffic.
+  FLAVOR: ${{ inputs.flavor || vars.SERVICE_FLAVOR || 'jar' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Generous because a native build is minutes of static analysis, not a javac run. The
+    # jar path finishes inside five.
+    timeout-minutes: 45
     # Dormant until GCP exists. Without this the first push of this file fails at the auth
     # step on a repository that has no project yet, which reads as a broken pipeline rather
     # than one waiting for an account. Set the variables below and it arms itself.
@@ -65,12 +78,21 @@ jobs:
             >> "$GITHUB_ENV"
 
       # Tagged with the commit rather than only :latest, so a revision can be traced back
-      # to a diff and a rollback names an image instead of guessing.
+      # to a diff and a rollback names an image instead of guessing. The flavour is a tag
+      # of its own as well, because :latest alone does not say which of the two it is.
       - name: Build and push image
         run: |
-          docker build -f service/Dockerfile -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          case "$FLAVOR" in
+            jar) dockerfile=service/Dockerfile ;;
+            native) dockerfile=service/Dockerfile.native ;;
+            *) echo "::error::unknown FLAVOR '$FLAVOR' — expected jar or native"; exit 1 ;;
+          esac
+          echo "Building $FLAVOR image from $dockerfile"
+          docker build -f "$dockerfile" \
+            -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" -t "$IMAGE:$FLAVOR" .
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
+          docker push "$IMAGE:$FLAVOR"
 
       # The flags are §7's, and they are the cost guardrail: max-instances=2 caps what a
       # traffic spike can cost, min-instances=0 is what makes the free tier free, and the

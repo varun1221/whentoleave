@@ -6,7 +6,7 @@ For five Bay Area commute corridors, it shows how driving time varies across day
 and time-of-day, so you can see at a glance that leaving San Francisco for Oakland at
 06:00 on a Friday costs 17 minutes and leaving at 17:00 on a Wednesday costs 36.
 
-**Status: Phase 1 is code-complete and not yet deployed.** See
+**Status: Phase 1 is live at [whentoleave.me](https://whentoleave.me).** See
 [Where this is](#where-this-is) for exactly what works today and what is left.
 
 ---
@@ -47,6 +47,7 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
 | Lookup panel (step 15) | Built; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
+| Live site | **Deployed 2026-09-20** — [whentoleave.me](https://whentoleave.me) and `www`, on Cloudflare Pages, HTTPS with a valid cert, `_headers` confirmed applying at the edge |
 | Native image (step 14) | Configured — GraalVM plugin, reflection hints, `Dockerfile.native` — and **never built**: see below |
 | `deploy-service.yml` + both Dockerfiles | Written, **never run**; no GCP account yet |
 
@@ -60,14 +61,16 @@ Phase 1, in order:
 1. ~~**Push to GitHub.**~~ Done — `main` is on `varun1221/forecastapp`.
 2. ~~**Set the `TOMTOM_API_KEY` repository secret** and run the `sample` workflow in
    CI.~~ Done — secret set 2026-09-12, and the workflow has run three times since.
-3. **Deploy to Cloudflare Pages.** Root directory `web`, build command `npm run build`,
-   output directory `dist`, with `NODE_VERSION` pinned in the Pages environment.
-4. **Point the domain.** Register it, then move its nameservers to Cloudflare — the zone
-   has to live there, because the Transform Rule that step 13 depends on is a zone
-   feature and a domain merely pointed at Pages would not have one.
+3. ~~**Deploy to Cloudflare Pages.**~~ Done 2026-09-20 — root directory `web`, build
+   command `npm run build`, output directory `dist`, `NODE_VERSION` pinned to 22 so the
+   Pages build matches the one CI tests.
+4. ~~**Point the domain.**~~ Done 2026-09-20 — `whentoleave.me` registered at Namecheap,
+   nameservers moved to Cloudflare, and both the apex and `www` attached as Pages custom
+   domains. The zone lives in Cloudflare, which is what step 13's Transform Rule needs;
+   a domain merely pointed at Pages would not have one.
 
-None of that waits on more data. The grid is already complete, and more weeks of
-sampling would not make it more complete — see
+Phase 1 is complete as of 2026-09-20. The grid it renders was already full before the
+deploy, and more weeks of sampling would not make it more complete — see
 [what re-sampling actually buys](#what-re-sampling-actually-buys) for why.
 
 Phase 2, in order:
@@ -90,8 +93,9 @@ Phase 2, in order:
    environment. Until then the lookup panel hides itself, which is the correct behaviour
    for a site whose backend is not up yet.
 
-The service and the lookup panel are written and green locally. What has not happened is
-a request served over the internet.
+The service and the lookup panel are written and green locally. The static site now
+serves real traffic on its own domain; what has not happened is an **API** request served
+over the internet.
 
 ---
 

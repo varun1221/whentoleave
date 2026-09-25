@@ -7,8 +7,10 @@ import dev.varun.forecast.api.DatabaseTest;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.SampleRepository;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,14 @@ class SeedImporterTest extends DatabaseTest {
         return "{\"targetLocal\":\"2026-09-14T0" + hour + ":00\",\"dayOfWeek\":\"" + day
                 + "\",\"slotHour\":" + hour + ",\"durationSeconds\":" + seconds
                 + ",\"distanceMeters\":80000,\"requestedAt\":\"" + at + "\"}";
+    }
+
+    private static Stream<String> lines(Path file) {
+        try {
+            return Files.readAllLines(file).stream();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /** Without the flag this bean must do nothing: the service must not import at boot. */
@@ -173,14 +183,28 @@ class SeedImporterTest extends DatabaseTest {
         assertEquals(0, corridors.count());
     }
 
-    /** The committed Phase 1 dataset loads as-is, at the volume it actually has. */
+    /**
+     * The committed Phase 1 dataset loads as-is, at the volume it actually has. That
+     * volume is counted from the files rather than written down, because every weekly
+     * sweep grows it and a hardcoded number broke on the next one.
+     */
     @Test
     void importsTheRealCommittedDataset() throws Exception {
-        importerFor(Path.of("config/routes.json"), Path.of("data/samples"))
+        Path samplesDir = Path.of("data/samples");
+        long committed;
+        try (Stream<Path> files = Files.list(samplesDir)) {
+            committed = files.filter(f -> f.toString().endsWith(".jsonl"))
+                    .flatMap(SeedImporterTest::lines)
+                    .filter(line -> !line.isBlank())
+                    .count();
+        }
+
+        importerFor(Path.of("config/routes.json"), samplesDir)
                 .run(new DefaultApplicationArguments("--import-seed"));
 
         assertEquals(5, corridors.count());
-        assertEquals(1365, samples.count());
+        assertTrue(committed > 0, "the dataset is where this test expects it");
+        assertEquals(committed, samples.count());
         assertTrue(corridors.findBySlug("sjsu-sf").isPresent());
     }
 }

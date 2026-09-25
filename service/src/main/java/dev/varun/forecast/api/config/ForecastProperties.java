@@ -25,8 +25,13 @@ public record ForecastProperties(Tomtom tomtom, Cache cache, Quota quota, Lookup
      * forwards. When set, an {@code /api/**} request without it is refused, because it
      * did not come through Cloudflare and its {@code CF-Connecting-IP} cannot be trusted.
      * Blank locally, where there is no Cloudflare.
+     *
+     * <p>{@code allowedOrigins} are the pages that may read API answers from a browser.
+     * The site and the API are different hostnames, so this is not optional once the
+     * site calls the API directly. Empty locally, where Vite proxies {@code /api} and
+     * every call is same-origin.
      */
-    public record Edge(String originSecret) {
+    public record Edge(String originSecret, List<String> allowedOrigins) {
         public boolean enforced() {
             return originSecret != null && !originSecret.isBlank();
         }

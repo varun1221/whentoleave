@@ -54,6 +54,12 @@ forecast:
     # Rule). With it set, /api/** refuses anything that skipped Cloudflare and could
     # therefore have forged CF-Connecting-IP. Blank locally; a secret in deployment.
     origin-secret: ${ORIGIN_SECRET:}
+    # The site lives on a different hostname from the API, so the browser only hands
+    # the page an answer when the API names the page's origin. Both hostnames Pages
+    # serves. Not secret: CORS decides what a browser may read, not who may call.
+    allowed-origins:
+      - https://whentoleave.me
+      - https://www.whentoleave.me
   privacy:
     # Keys the HMAC that stands in for a visitor's address in ip_daily_usage, so the
     # table never holds one. Deliberately not a database column: a key kept beside the

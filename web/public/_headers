@@ -7,15 +7,13 @@
 # reaches crawlers that never fetch robots.txt.
 /*
   X-Robots-Tag: noindex, nofollow
-  # The page loads its own bundle and one JSON file and nothing else. Saying so means a
-  # stray injected script has nowhere to call home.
+  # The page loads its own bundle and one JSON file, and talks to its own API, and
+  # nothing else. Saying so means a stray injected script has nowhere to call home.
   #
-  # PHASE 2 WILL BREAK ON THIS. When VITE_API_BASE points at api.whentoleave.me, every
-  # lookup is a cross-origin fetch, and connect-src falls back to default-src — 'self' —
-  # so the browser blocks it and the panel reports an unreachable service. Add
-  # `connect-src 'self' https://api.whentoleave.me;` here in the same change that sets
-  # VITE_API_BASE.
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+  # connect-src names the API because the lookup panel fetches it cross-origin: without
+  # it, connect-src falls back to default-src — 'self' — and the browser blocks every
+  # lookup. Harmless before VITE_API_BASE is set, since nothing calls it yet.
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https://api.whentoleave.me; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
   # Referrers leak where a visitor came from. This site sends none.
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff

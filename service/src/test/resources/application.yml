@@ -50,6 +50,7 @@ forecast:
     per-ip-daily: 5
   search:
     per-ip-daily: 20
+    daily-ceiling: 1000
     min-query-length: 3
     result-limit: 5
     country-set: US

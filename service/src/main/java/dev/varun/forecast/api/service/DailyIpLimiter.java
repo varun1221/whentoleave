@@ -50,6 +50,9 @@ public class DailyIpLimiter {
      */
     public record Spend(LocalDate day, Budget budget, String ipHash) {}
 
+    /** The row that counts {@link #tryConsumeShared}; see there for why it is safe. */
+    private static final String SHARED = "*";
+
     private final IpUsageRepository usage;
     private final QuotaDay day;
     private final IpHasher hasher;
@@ -83,6 +86,24 @@ public class DailyIpLimiter {
             return Optional.empty();
         }
         return Optional.of(new Spend(today, budget, ipHash));
+    }
+
+    /**
+     * Spends one against a budget's day-wide total, across every visitor, if fewer than
+     * {@code ceiling} are spent.
+     *
+     * <p>Per-IP budgets do not bound a caller who holds many addresses, so a budget with
+     * no other global cap needs this as well. Counted in the same table and the same
+     * atomic statement as the per-IP budgets, under a key no {@link IpHasher} output can
+     * collide with: a hash is base64url, which has no {@code *}.
+     */
+    public Optional<Spend> tryConsumeShared(Budget budget, int ceiling) {
+        LocalDate today = day.today();
+        prune(today);
+        if (!usage.tryIncrement(today, budget.name(), SHARED, ceiling)) {
+            return Optional.empty();
+        }
+        return Optional.of(new Spend(today, budget, SHARED));
     }
 
     /** Hands back a token spent on a request that never reached TomTom. */

@@ -80,23 +80,28 @@ public class LookupService {
             throw new IllegalArgumentException("Origin and destination are the same place");
         }
 
-        Corridor corridor = resolveCorridor(origin, dest);
-        if (corridor.isSeeded()) {
+        // Found, not created: a corridor row is only written once a visitor has cleared
+        // every guard below. Creating it up front let anyone refused by those guards
+        // still grow the table by one row per invented coordinate pair.
+        Optional<Corridor> known = corridors.findByOriginCoordAndDestCoord(origin, dest);
+        if (known.isPresent() && known.get().isSeeded()) {
             // Already swept weekly at full resolution. Returning the reduced grid here
             // would give a visitor a worse answer than clicking the same corridor in
             // the list, and would cost calls to rebuild what is already on disk.
-            return seeded.forecastFor(corridor.getSlug()).orElseThrow();
+            return seeded.forecastFor(known.get().getSlug()).orElseThrow();
         }
         List<Integer> hours = props.lookup().weekdayHours();
         Instant cutoff = clock.instant().minus(props.cache().ttlDays(), ChronoUnit.DAYS);
 
-        List<Sample> fresh =
-                samples.findByCorridorIdAndRequestedAtAfter(corridor.getId(), cutoff);
+        List<Sample> fresh = known
+                .map(c -> samples.findByCorridorIdAndRequestedAtAfter(c.getId(), cutoff))
+                .orElse(List.of());
         List<Slot> missing = missingSlots(fresh, hours);
 
         if (missing.isEmpty()) {
             // The whole point of the design: a warm corridor is free, and costs the
             // visitor none of their five daily lookups.
+            Corridor corridor = known.orElseThrow();
             log.info("lookup cache hit corridor={} samples={}", corridor.getId(),
                     fresh.size());
             return grids.build(corridor, fresh, WEEKDAYS, hours, true);
@@ -107,7 +112,7 @@ public class LookupService {
         if (!killSwitch.lookupsEnabled()) {
             // No reset time, here or in the 429: the switch ends when a human ends it,
             // and a promised midnight would be a promise nothing keeps.
-            return degraded(corridor, fresh, hours, ApiCode.LOOKUPS_PAUSED, null,
+            return degraded(known, fresh, hours, ApiCode.LOOKUPS_PAUSED, null,
                     () -> LookupsUnavailableException.lookupsPaused(quotas.remaining()));
         }
 
@@ -116,7 +121,7 @@ public class LookupService {
         // visitor therefore never touches the shared budget.
         Optional<Spend> spend = perIp.tryConsume(Budget.LOOKUP, clientIp);
         if (spend.isEmpty()) {
-            return degraded(corridor, fresh, hours, ApiCode.RATE_LIMITED, day.resetsAt(),
+            return degraded(known, fresh, hours, ApiCode.RATE_LIMITED, day.resetsAt(),
                     () -> RateLimitedException.used("lookups",
                             perIp.dailyLimit(Budget.LOOKUP), day.resetsAt()));
         }
@@ -126,15 +131,17 @@ public class LookupService {
         if (granted == 0) {
             // The visitor should not be charged for a global limit.
             perIp.refund(spend.get());
-            return degraded(corridor, fresh, hours, ApiCode.QUOTA_EXHAUSTED,
+            return degraded(known, fresh, hours, ApiCode.QUOTA_EXHAUSTED,
                     day.resetsAt(),
                     () -> LookupsUnavailableException.budgetSpent(quotas.remaining(),
                             day.resetsAt()));
         }
 
         QuotaBudget budget = new QuotaBudget(quotas, reservation);
+        Corridor corridor;
         List<Sample> saved;
         try {
+            corridor = known.orElseGet(() -> register(origin, dest));
             saved = fill(corridor, missing.subList(0, granted), budget);
         } finally {
             // §9.4: only calls that actually reached TomTom count, against either limit.
@@ -162,25 +169,24 @@ public class LookupService {
      * how much of the corridor happened to be cached changes how much the visitor is
      * shown, never what they are told about the limit.
      *
+     * @param known the corridor, which is always present when anything is cached
      * @param resetsAt when the limit lifts, or null for one with no scheduled end
      */
-    private ForecastGrid degraded(Corridor corridor, List<Sample> fresh,
+    private ForecastGrid degraded(Optional<Corridor> known, List<Sample> fresh,
             List<Integer> hours, ApiCode notice, Instant resetsAt,
             Supplier<RuntimeException> ifEmpty) {
         if (fresh.isEmpty()) {
             throw ifEmpty.get();
         }
+        Corridor corridor = known.orElseThrow();
         log.info("serving {} cached samples for corridor={} ({})", fresh.size(),
                 corridor.getId(), notice);
         return grids.build(corridor, fresh, WEEKDAYS, hours, true)
                 .withNotice(notice, resetsAt);
     }
 
-    @Transactional
-    Corridor resolveCorridor(String origin, String dest) {
-        return corridors.findByOriginCoordAndDestCoord(origin, dest)
-                .orElseGet(() -> corridors.save(
-                        new Corridor(null, origin, dest, null, false)));
+    private Corridor register(String origin, String dest) {
+        return corridors.save(new Corridor(null, origin, dest, null, false));
     }
 
     /** Slots in the target grid with no fresh sample behind them. */

@@ -135,6 +135,30 @@ class PlacesServiceTest extends DatabaseTest {
     }
 
     /**
+     * Per-IP budgets alone do not bound search: a caller with many addresses gets many
+     * budgets. The shared ceiling is what caps what TomTom sees in a day, whoever asks.
+     */
+    @Test
+    void theSharedDailyCeilingStopsSearchWhateverTheAddress() throws Exception {
+        try (StubTomTom stub = new StubTomTom().enqueue(200, BODY).enqueue(200, BODY)) {
+            ForecastProperties props = TestProps.searchCeiling(stub.baseUrl(), 20, 2);
+            QuotaDay day = new QuotaDay(Clock.systemUTC());
+            DailyIpLimiter limiter =
+                    new DailyIpLimiter(usage, props, day, new IpHasher(props));
+            PlacesService places =
+                    new PlacesService(new SearchClient(props), limiter, day, props);
+
+            places.suggest("palo alto", "1.1.1.1");
+            places.suggest("berkeley bart", "2.2.2.2");
+
+            assertTrue(places.suggest("san jose", "3.3.3.3").isEmpty());
+            assertEquals(2, stub.requestCount(), "the third search must not call out");
+            assertEquals(20, limiter.remaining(Budget.SEARCH, "3.3.3.3"),
+                    "a shared limit does not cost the visitor a search");
+        }
+    }
+
+    /**
      * A failed search is a missing dropdown, not a broken page: the visitor can still
      * paste coordinates.
      */

@@ -80,6 +80,10 @@ forecast:
     # §9.5: 20 per IP per day. Separate from the lookup budget because TomTom Search
     # draws on its own freemium allowance.
     per-ip-daily: 20
+    # Across every visitor. Per-IP budgets alone do not bound search: an IPv6 visitor
+    # holds a whole /64, and a botnet holds many addresses of any kind. This keeps a
+    # day's search traffic well inside TomTom's freemium allowance whatever arrives.
+    daily-ceiling: 1000
     # Autocomplete fires per keystroke. Without a floor, every single letter typed is a
     # billable request.
     min-query-length: 3

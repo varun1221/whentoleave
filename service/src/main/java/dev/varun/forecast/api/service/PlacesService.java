@@ -67,6 +67,19 @@ public class PlacesService {
         if (spend.isEmpty()) {
             throw RateLimitedException.used("address searches", limit, day.resetsAt());
         }
+        // The visitor is charged first so a rate-limited one never touches the shared
+        // total, and refunded if the shared total is what stops them: they should not
+        // pay for a limit everyone hit together.
+        Optional<DailyIpLimiter.Spend> shared = perIp.tryConsumeShared(
+                DailyIpLimiter.Budget.SEARCH, props.search().dailyCeiling());
+        if (shared.isEmpty()) {
+            perIp.refund(spend.get());
+            // A missing dropdown, like any other failed search: the visitor can still
+            // paste coordinates.
+            log.warn("address search refused: the daily ceiling of {} is spent",
+                    props.search().dailyCeiling());
+            return List.of();
+        }
 
         try {
             List<PlaceSuggestion> results = search.suggest(query);
@@ -74,9 +87,10 @@ public class PlacesService {
             return results;
         } catch (CallNotSentException e) {
             // Nothing reached TomTom, so nothing was spent. Only this case is refunded:
-            // search has no global cap, and refunding a request TomTom did receive would
-            // let one visitor retry a failing upstream without limit.
+            // refunding a request TomTom did receive would let one visitor retry a
+            // failing upstream until the shared ceiling, not their own, stopped them.
             perIp.refund(spend.get());
+            perIp.refund(shared.get());
             log.warn("address search for \"{}\" not sent: {}", query, e.getMessage());
             return List.of();
         } catch (IOException e) {

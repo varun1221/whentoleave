@@ -24,6 +24,13 @@ public final class TestProps {
         return with("http://localhost:0", "test-key", 5, 20, 3);
     }
 
+    /** For the search tests that exercise the shared daily ceiling. */
+    public static ForecastProperties searchCeiling(String baseUrl, int searchPerIp,
+            int searchDailyCeiling) {
+        return all(baseUrl, "test-key", 5, searchPerIp, searchDailyCeiling, 3, 0,
+                IP_SECRET, "");
+    }
+
     /** For the kill-switch tests, which assert on how long an answer is held. */
     public static ForecastProperties killSwitchCaching(int seconds) {
         return all("http://localhost:0", "", 5, 20, 3, seconds, IP_SECRET);
@@ -36,24 +43,26 @@ public final class TestProps {
 
     /** An edge secret but no IP secret: the misconfigured deployment, which must fail. */
     public static ForecastProperties deployedWithoutIpSecret() {
-        return all("http://localhost:0", "test-key", 5, 20, 3, 0, "", "edge-secret");
+        return all("http://localhost:0", "test-key", 5, 20, 1000, 3, 0, "",
+                "edge-secret");
     }
 
     private static ForecastProperties all(String baseUrl, String apiKey, int lookupPerIp,
             int searchPerIp, int minQueryLength, int killSwitchSeconds, String ipSecret) {
-        return all(baseUrl, apiKey, lookupPerIp, searchPerIp, minQueryLength,
+        return all(baseUrl, apiKey, lookupPerIp, searchPerIp, 1000, minQueryLength,
                 killSwitchSeconds, ipSecret, "");
     }
 
     private static ForecastProperties all(String baseUrl, String apiKey, int lookupPerIp,
-            int searchPerIp, int minQueryLength, int killSwitchSeconds, String ipSecret,
-            String originSecret) {
+            int searchPerIp, int searchDailyCeiling, int minQueryLength,
+            int killSwitchSeconds, String ipSecret, String originSecret) {
         return new ForecastProperties(
                 new ForecastProperties.Tomtom(apiKey, baseUrl),
                 new ForecastProperties.Cache(7),
                 new ForecastProperties.Quota(150),
                 new ForecastProperties.Lookup(List.of(6, 7, 8), lookupPerIp),
-                new ForecastProperties.Search(searchPerIp, minQueryLength, 5, "US", 24),
+                new ForecastProperties.Search(searchPerIp, searchDailyCeiling, minQueryLength,
+                        5, "US", 24),
                 new ForecastProperties.KillSwitch(killSwitchSeconds),
                 new ForecastProperties.Edge(originSecret),
                 new ForecastProperties.Privacy(ipSecret));

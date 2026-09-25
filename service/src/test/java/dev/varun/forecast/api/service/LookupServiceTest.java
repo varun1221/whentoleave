@@ -117,6 +117,48 @@ class LookupServiceTest extends DatabaseTest {
         assertFalse(created.isSeeded());
     }
 
+    /**
+     * A corridor row is a write anyone can cause by inventing coordinates, so one is only
+     * made for a visitor who has cleared every guard. Otherwise a refused visitor could
+     * still grow the table by one row per request, without limit.
+     */
+    @Test
+    void aRateLimitedVisitorRegistersNoCorridor() {
+        String ip = "10.0.0.19";
+        for (int i = 0; i < 5; i++) {
+            perIp.tryConsume(Budget.LOOKUP, ip);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            String origin = "37.2" + i + ",-122.2";
+            assertThrows(RateLimitedException.class,
+                    () -> lookups.lookup(origin, "38.2,-121.2", ip));
+        }
+
+        assertEquals(0, corridors.count());
+    }
+
+    @Test
+    void aPausedServiceRegistersNoCorridor() {
+        jdbc.update("UPDATE service_setting SET value = 'false' "
+                + "WHERE key = 'lookups_enabled'");
+
+        assertThrows(LookupsUnavailableException.class,
+                () -> lookups.lookup("37.31,-122.31", "38.31,-121.31", "10.0.0.20"));
+
+        assertEquals(0, corridors.count());
+    }
+
+    @Test
+    void aSpentGlobalBudgetRegistersNoCorridor() {
+        quotas.reserve(150);
+
+        assertThrows(LookupsUnavailableException.class,
+                () -> lookups.lookup("37.32,-122.32", "38.32,-121.32", "10.0.0.21"));
+
+        assertEquals(0, corridors.count());
+    }
+
     @Test
     void rejectsAnIdenticalOriginAndDestination() {
         IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,

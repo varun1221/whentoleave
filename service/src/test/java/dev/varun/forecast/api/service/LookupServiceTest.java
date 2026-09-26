@@ -104,17 +104,20 @@ class LookupServiceTest extends DatabaseTest {
         assertEquals(1, corridors.count(), "no duplicate corridor");
     }
 
+    /**
+     * No key configured, so nothing is sent and the lookup is refunded. Keeping the row
+     * would let one visitor add a corridor per invented pair for as long as TomTom is
+     * unreachable, each attempt free. Registration when calls were sent is covered in
+     * {@link LookupChargingTest}.
+     */
     @Test
-    void anUnknownCoordinatePairRegistersACorridor() {
-        assertEquals(0, corridors.count());
+    void anUnknownPairThatSendsNothingLeavesNoCorridor() {
+        ForecastGrid grid = lookups.lookup("37.9,-122.9", "38.9,-121.9", "10.0.0.4");
 
-        // No key configured, so every slot fetch fails and the grid comes back empty.
-        lookups.lookup("37.9,-122.9", "38.9,-121.9", "10.0.0.4");
-
-        assertEquals(1, corridors.count());
-        Corridor created = corridors.findAll().get(0);
-        assertNull(created.getSlug(), "a user corridor has no slug");
-        assertFalse(created.isSeeded());
+        assertEquals(0, grid.sampleCount());
+        assertEquals(0, corridors.count(), "nothing fetched, so no row written");
+        assertEquals(150, quotas.remaining());
+        assertEquals(5, perIp.remaining(Budget.LOOKUP, "10.0.0.4"));
     }
 
     /**

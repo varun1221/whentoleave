@@ -1,6 +1,8 @@
 package dev.varun.forecast.api.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,6 +16,8 @@ import dev.varun.forecast.api.domain.Sample;
 import dev.varun.forecast.api.repo.CorridorRepository;
 import dev.varun.forecast.api.repo.SampleRepository;
 import dev.varun.forecast.api.service.DailyIpLimiter.Budget;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -22,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -57,6 +62,11 @@ class LookupChargingTest extends DatabaseTest {
     }
 
     private LookupService lookupsUsing(ForecastProperties props, RoutingClient routing) {
+        return lookupsUsing(corridors, props, routing);
+    }
+
+    private LookupService lookupsUsing(CorridorRepository corridors,
+            ForecastProperties props, RoutingClient routing) {
         return new LookupService(corridors, samples, routing, quotas, grids, seeded,
                 perIp, killSwitch, day, props, Clock.systemUTC());
     }
@@ -130,6 +140,82 @@ class LookupChargingTest extends DatabaseTest {
         assertEquals(13, grid.sampleCount());
         assertEquals(150, quotas.remaining());
         assertEquals(5, perIp.remaining(Budget.LOOKUP, IP));
+    }
+
+    @Test
+    void anUnknownPairThatReachesTomTomRegistersACorridor() throws Exception {
+        try (StubTomTom stub = new StubTomTom().enqueue(200, ROUTE)) {
+
+            ForecastGrid grid = lookupsAgainst(stub.baseUrl())
+                    .lookup("37.28,-122.28", "38.28,-121.28", IP);
+
+            assertEquals(1, grid.sampleCount(), "the one answered slot");
+            assertEquals(1, corridors.count());
+            Corridor created = corridors.findAll().get(0);
+            assertNull(created.getSlug(), "a user corridor has no slug");
+            assertFalse(created.isSeeded());
+        }
+    }
+
+    /** The unreachable case, which is when a kept row would cost nothing to repeat. */
+    @Test
+    void anUnknownPairThatNeverConnectsLeavesNoCorridor() {
+        lookupsAgainst("http://127.0.0.1:1").lookup("37.29,-122.29", "38.29,-121.29", IP);
+
+        assertEquals(0, corridors.count());
+        assertEquals(150, quotas.remaining());
+        assertEquals(5, perIp.remaining(Budget.LOOKUP, IP));
+    }
+
+    /** An unexpected failure before any call must not strand a new row either. */
+    @Test
+    void anUnexpectedFailureBeforeAnyCallLeavesNoCorridor() {
+        assertThrows(IllegalStateException.class, () -> lookupsWhereEachCall(budget -> {
+            throw new IllegalStateException("could not save the sample");
+        }).lookup("37.31,-122.31", "38.31,-121.31", IP));
+
+        assertEquals(0, corridors.count());
+    }
+
+    /**
+     * The race on a new pair: another request registers it between this one's lookup
+     * and its own registration. This one files its samples under that row rather than
+     * failing on the unique constraint.
+     */
+    @Test
+    void aPairRegisteredConcurrentlyIsShared() throws Exception {
+        String origin = "37.302,-122.302";
+        String dest = "38.302,-121.302";
+        Corridor theirs = corridors.save(new Corridor(null, origin, dest, null, false));
+        try (StubTomTom stub = new StubTomTom().enqueue(200, ROUTE)) {
+            ForecastProperties props = TestProps.with(stub.baseUrl(), "test-key", 5, 20, 3);
+
+            ForecastGrid grid = lookupsUsing(corridorsFirstMissing(), props,
+                    new RoutingClient(props)).lookup(origin, dest, IP);
+
+            assertEquals(1, grid.sampleCount());
+            assertEquals(1, corridors.count(), "no second row");
+            assertEquals(1, samples.findByCorridorId(theirs.getId()).size());
+        }
+    }
+
+    /** The real repository, except the first lookup by coordinates finds nothing. */
+    private CorridorRepository corridorsFirstMissing() {
+        AtomicBoolean hidden = new AtomicBoolean();
+        return (CorridorRepository) Proxy.newProxyInstance(
+                CorridorRepository.class.getClassLoader(),
+                new Class<?>[] {CorridorRepository.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("findByOriginCoordAndDestCoord")
+                            && hidden.compareAndSet(false, true)) {
+                        return Optional.empty();
+                    }
+                    try {
+                        return method.invoke(corridors, args);
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
     }
 
     /**

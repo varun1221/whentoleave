@@ -138,10 +138,15 @@ public class LookupService {
         }
 
         QuotaBudget budget = new QuotaBudget(quotas, reservation);
-        Corridor corridor;
+        // A new pair stays unsaved until fill has a sample to attach to it. Written up
+        // front, a lookup that reached nothing would leave the row behind, refunded, so
+        // while TomTom was unreachable one visitor could add one per invented pair for
+        // free; and deleting it afterwards could pull it from under a second request
+        // filling the same pair.
+        Corridor corridor = known.orElseGet(() -> new Corridor(null, origin, dest, null,
+                false));
         List<Sample> saved;
         try {
-            corridor = known.orElseGet(() -> register(origin, dest));
             saved = fill(corridor, missing.subList(0, granted), budget);
         } finally {
             // §9.4: only calls that actually reached TomTom count, against either limit.
@@ -156,7 +161,8 @@ public class LookupService {
         List<Sample> combined = new ArrayList<>(fresh);
         combined.addAll(saved);
         log.info("lookup corridor={} cached={} sent={} fetched={} stillMissing={}",
-                corridor.getId(), fresh.size(), budget.spent(), saved.size(),
+                saved.isEmpty() ? corridor.getId() : saved.get(0).getCorridorId(),
+                fresh.size(), budget.spent(), saved.size(),
                 missing.size() - saved.size());
         return grids.build(corridor, combined, WEEKDAYS, hours, true);
     }
@@ -185,8 +191,14 @@ public class LookupService {
                 .withNotice(notice, resetsAt);
     }
 
-    private Corridor register(String origin, String dest) {
-        return corridors.save(new Corridor(null, origin, dest, null, false));
+    /**
+     * Saves a new pair's row, or finds the one a concurrent lookup for the same pair
+     * saved first. Nothing deletes a user corridor, so the find cannot miss.
+     */
+    private Long register(Corridor pair) {
+        corridors.insertIfAbsent(pair.getOriginCoord(), pair.getDestCoord());
+        return corridors.findByOriginCoordAndDestCoord(pair.getOriginCoord(),
+                pair.getDestCoord()).orElseThrow().getId();
     }
 
     /** Slots in the target grid with no fresh sample behind them. */
@@ -222,6 +234,7 @@ public class LookupService {
     List<Sample> fill(Corridor corridor, List<Slot> slots, CallBudget budget) {
         ZonedDateTime now = ZonedDateTime.now(clock.withZone(DepartureSlots.ZONE));
         List<Sample> saved = new ArrayList<>();
+        Long corridorId = corridor.getId();
         for (Slot slot : slots) {
             try {
                 ZonedDateTime departAt =
@@ -232,8 +245,11 @@ public class LookupService {
                 if (result.isEmpty()) {
                     continue;
                 }
+                if (corridorId == null) {
+                    corridorId = register(corridor);
+                }
                 saved.add(samples.save(new Sample(
-                        corridor.getId(),
+                        corridorId,
                         slot.day(),
                         slot.hour(),
                         (int) result.get().durationSeconds(),

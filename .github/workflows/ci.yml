@@ -14,7 +14,9 @@ concurrency:
 jobs:
   java:
     name: sampler + service
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which becomes Ubuntu 26 from 2026-10-19
+    # (runner-images #14748). Move all three workflows together once 26 is verified.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     # The service tests run against a real Postgres rather than H2. The two pieces of
@@ -53,7 +55,7 @@ jobs:
 
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java-test-reports
           path: |
@@ -63,12 +65,12 @@ jobs:
 
   web:
     name: web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm

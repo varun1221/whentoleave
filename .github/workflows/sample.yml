@@ -23,7 +23,9 @@ concurrency:
 
 jobs:
   sample:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, which becomes Ubuntu 26 from 2026-10-19
+    # (runner-images #14748). Move all three workflows together once 26 is verified.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5

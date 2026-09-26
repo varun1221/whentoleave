@@ -1,6 +1,7 @@
 package dev.varun.forecast.api.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -13,13 +14,17 @@ import dev.varun.forecast.api.service.DailyIpLimiter.Budget;
 import java.time.Clock;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 /**
  * Autocomplete is the most expensive request shape in the app: it fires as someone
  * types, so one address can generate a dozen requests. These tests are about the three
  * guards that stop that from being billable.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class PlacesServiceTest extends DatabaseTest {
 
     private static final String IP = "1.2.3.4";
@@ -196,5 +201,21 @@ class PlacesServiceTest extends DatabaseTest {
             assertTrue(f.places().suggest("   ", IP).isEmpty());
             assertEquals(0, stub.requestCount());
         }
+    }
+
+    /**
+     * What someone types is usually a home or work address. The service never stores
+     * one, so it must not leave one in the logs either, on either failure path.
+     */
+    @Test
+    void aFailedSearchDoesNotLogWhatWasTyped(CapturedOutput output) throws Exception {
+        try (StubTomTom stub = new StubTomTom().enqueue(500, "down")) {
+            fixture(stub, 20, 3).places().suggest("1 Infinite Loop", IP);
+        }
+        fixtureAt("http://127.0.0.1:1", 20, 3).places().suggest("742 Evergreen Terrace", IP);
+
+        assertTrue(output.getOut().contains("address search"), "the failures are logged");
+        assertFalse(output.getAll().contains("Infinite Loop"));
+        assertFalse(output.getAll().contains("Evergreen Terrace"));
     }
 }

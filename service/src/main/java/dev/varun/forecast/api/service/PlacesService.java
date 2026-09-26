@@ -91,12 +91,16 @@ public class PlacesService {
             // failing upstream until the shared ceiling, not their own, stopped them.
             perIp.refund(spend.get());
             perIp.refund(shared.get());
-            log.warn("address search for \"{}\" not sent: {}", query, e.getMessage());
+            // The length, never the text: what people type here is usually a home or
+            // work address, and the rest of the service keeps no visitor data.
+            log.warn("address search ({} chars) not sent: {}", query.length(),
+                    e.getMessage());
             return List.of();
         } catch (IOException e) {
             // A failed search is a missing dropdown, not a broken page. The visitor can
             // still paste coordinates, so this degrades rather than propagates.
-            log.warn("address search for \"{}\" failed: {}", query, e.getMessage());
+            log.warn("address search ({} chars) failed: {}", query.length(),
+                    e.getMessage());
             return List.of();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

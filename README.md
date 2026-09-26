@@ -42,14 +42,14 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | `data/samples/*.jsonl` | 364 rows per route across 5 routes |
 | `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 4` |
 | Weekly `sample` workflow | Two manual runs on 2026-09-12, then unattended on 09-13 and 09-20, committing its own data each time |
-| Phase 2 service | Steps 8–12 done locally: schema, seed import, lookup, limits, search |
-| Tests | 292 passing — 32 sampler, 182 service, 78 web |
+| Phase 2 service | **Deployed 2026-09-26** — Cloud Run `forecast-service` in us-west1, serving [api.whentoleave.me](https://api.whentoleave.me/actuator/health) behind Cloudflare |
+| Tests | 312 passing — 32 sampler, 202 service, 78 web |
 | React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
-| Lookup panel (step 15) | Built; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
+| Lookup panel (step 15) | **Live** — `VITE_API_BASE` is set in Pages; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
 | Live site | **Deployed 2026-09-20** — [whentoleave.me](https://whentoleave.me) and `www`, on Cloudflare Pages, HTTPS with a valid cert, `_headers` confirmed applying at the edge |
 | Native image (step 14) | Configured — GraalVM plugin, reflection hints, `Dockerfile.native` — and **never built**: see below |
-| `deploy-service.yml` + both Dockerfiles | Written, **never run**; no GCP account yet |
+| `deploy-service.yml` + both Dockerfiles | The jar path deploys on every push to `main` under `service/**`; the native path has never run |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -75,12 +75,12 @@ deploy, and more weeks of sampling would not make it more complete — see
 
 Phase 2, in order:
 
-1. **Deploy the service to Cloud Run** (spec §9.7) as a plain JVM jar. The pipeline is
-   written — `service/Dockerfile` and `deploy-service.yml`, described under
-   [Deploying the service](#deploying-the-service) — and waits on one thing: Cloud Run
-   requires a GCP billing account with a card on file, the same blocker that moved this
-   project off Google's routing API in the first place. The jar image builds on a laptop;
-   what has never happened is a push to Artifact Registry, and the workflow has never run.
+1. ~~**Deploy the service to Cloud Run**~~ (spec §9.7) as a plain JVM jar. Done
+   2026-09-26 — `forecast-service` in us-west1, project `whentoleave-509718`, at most two
+   instances, redeployed by `deploy-service.yml` on every push to `main` that touches
+   `service/**`. It answers on
+   `api.whentoleave.me` through a Cloud Run domain mapping and a proxied Cloudflare
+   record; the setup is under [Deploying the service](#deploying-the-service).
 2. **Native image, last.** Configured but not yet built: the GraalVM plugin, the
    reflection hints every Jackson-bound record needs, and `service/Dockerfile.native`
    are all in place, and Spring's AOT processing runs clean. The compile itself is what
@@ -89,13 +89,15 @@ Phase 2, in order:
    machine with more memory than this one has, so the honest place to build it is CI.
    Cold start measured before and after, both numbers here, once it has been built
    somewhere that can build it.
-3. **Point the frontend at the deployed API** by setting `VITE_API_BASE` in the Pages
-   environment. Until then the lookup panel hides itself, which is the correct behaviour
-   for a site whose backend is not up yet.
+3. ~~**Point the frontend at the deployed API**~~ by setting `VITE_API_BASE` in the Pages
+   environment. Done 2026-09-26 — `https://api.whentoleave.me`, a plain-text variable for
+   Production — and the CSP's
+   `connect-src` names it, so the lookup panel is live.
 
-The service and the lookup panel are written and green locally. The static site now
-serves real traffic on its own domain; what has not happened is an **API** request served
-over the internet.
+What remains is the native image and the smaller tickets filed alongside it on
+2026-09-26 — the most pressing being that weekly sweeps do not yet reach the database the
+API reads ([#7](https://github.com/varun1221/forecastapp/issues/7)), so from the
+2026-09-27 sweep on the static heatmap is ahead of the API until they do.
 
 ---
 
@@ -190,11 +192,29 @@ is discussed [below](#what-re-sampling-actually-buys).
 There is deliberately no code path from a browser to the API key in Phase 1. Free
 server tiers that sleep produce 30-second cold starts and make a demo look broken.
 
-### Phase 2 — planned, not built
+### Phase 2 — a lookup service behind Cloudflare
 
-A Spring Boot 3 service on Cloud Run behind Cloudflare, with the `sample` table doubling
-as the cache, per-IP and global daily counters in Postgres with a kill switch, and
-GraalVM native image compilation done last. Full design in the spec.
+```
+browser (whentoleave.me, lookup panel)
+        │  fetch, CORS-allowed only from whentoleave.me and www
+        ▼
+Cloudflare  api.whentoleave.me   (proxied CNAME → ghs.googlehosted.com)
+        ├─ rate-limit rule api-per-ip: blocks one IP that asks too often
+        └─ Transform Rule origin-secret: adds X-Origin-Secret
+        ▼
+Cloud Run  forecast-service   (Spring Boot 3 jar, us-west1, 0–2 instances)
+        ├─ refuses API calls without the origin secret, so the per-IP limits
+        │  cannot be sidestepped by calling the *.run.app URL directly
+        ├─ cache-first: a fresh `sample` row is served without calling TomTom
+        └─ per-IP and global daily counters, a kill switch
+        ▼
+Neon Postgres  (corridor, sample, counters)   +   TomTom routing and search
+```
+
+Live since 2026-09-26. The `sample` table doubles as the cache, per-IP and global daily
+counters live in Postgres beside it, and a kill switch pauses every paid call at once.
+GraalVM native image compilation comes last and has not happened yet. Full design in the
+spec.
 
 The spec names Bucket4j for the per-IP limit; the service uses a Postgres day counter
 instead. An in-process bucket is forgotten when Cloud Run scales to zero and counted
@@ -238,7 +258,7 @@ The site:
 cd web
 npm install
 npm run dev         # http://localhost:5173
-npm test            # 71 tests
+npm test            # 78 tests
 ```
 
 `npm run dev` proxies `/api` to `http://localhost:8080`, so the lookup panel appears as
@@ -248,8 +268,8 @@ API is on its own hostname, set at build time as `VITE_API_BASE`.
 Tests:
 
 ```bash
-./gradlew build              # sampler + service, 214 tests
-cd web && npm test           # 71 tests
+./gradlew build              # sampler + service, 234 tests
+cd web && npm test           # 78 tests
 ```
 
 The service tests need a Postgres to run against — a one-time setup:
@@ -359,13 +379,59 @@ importer at Neon from a laptop, once, rather than shipping `data/` to production
 DB_URL=... DB_USER=... DB_PASSWORD=... ./gradlew :service:bootRun --args='--import-seed'
 ```
 
-Two things the deploy cannot do for itself, both in issue #6: a **Cloudflare Transform
-Rule** on the API hostname setting `X-Origin-Secret` to the value of
-`forecast-origin-secret`, and `VITE_API_BASE` set to that hostname in the Pages
-environment. The workflow's last step fails loudly until the first of those exists — it
-asks Cloud Run directly for `/api/quota` and expects a 403, because a 200 there means the
-origin is trusting `CF-Connecting-IP` from anyone and the per-IP limits can be bypassed by
-sending a different one each time.
+The workflow's last step asks Cloud Run directly for `/api/quota` and expects a 403. It
+passes from the very first revision, because the origin secret is already in Secret
+Manager and the service refuses any request without it. A 200 there would mean the
+origin trusts `CF-Connecting-IP` from anyone, so the per-IP limits could be bypassed by
+sending a different one each time. That is also why nothing works through the API
+hostname until the Transform Rule below exists.
+
+The rest happens outside the workflow, once, in this order:
+
+1. **Verify the domain with Google.** `whentoleave.me` is verified in Google Search
+   Console through a TXT record in Cloudflare DNS. Cloud Run will not map a hostname on
+   an unverified domain.
+2. **Map the hostname to the service.**
+
+   ```bash
+   gcloud beta run domain-mappings create --service forecast-service \
+     --domain api.whentoleave.me --region "$REGION"
+   ```
+3. **Add the DNS record grey-clouded first.** A CNAME `api` → `ghs.googlehosted.com`,
+   set to **DNS only**. Google issues the certificate by reaching the hostname itself, and
+   through Cloudflare's proxy it cannot, so a proxied record leaves the mapping waiting
+   on a certificate indefinitely. Here it took about 50 minutes. Once
+   `gcloud beta run domain-mappings describe` reports the certificate ready, switch the
+   record to **Proxied**. Every rule below applies only to proxied traffic.
+4. **Transform Rule `origin-secret`.** Rules → Transform Rules → Modify Request Header,
+   on hostname `api.whentoleave.me`: set `X-Origin-Secret` to the value of
+   `forecast-origin-secret` (the wizard keeps it in `.env` as `ORIGIN_SECRET`).
+5. **Rate-limit rule `api-per-ip`.** A Cloudflare rate limiting rule on the same
+   hostname, counted per IP, action Block. It stops a flood at the edge, before it costs
+   a Cloud Run instance; the service's own per-IP counters still decide the daily limits.
+6. **Spend cap.** A $1 spend cap in GCP Billing, scoped to Cloud Run.
+7. **Artifact Registry cleanup.** Every deploy pushes an image, and storage past the free
+   0.5 GB is billed. Keep the five most recent, delete anything older than a day:
+
+   ```bash
+   cat > cleanup.json <<'JSON'
+   [
+     {"name": "keep-last-5", "action": {"type": "Keep"},
+      "mostRecentVersions": {"keepCount": 5}},
+     {"name": "delete-old", "action": {"type": "Delete"},
+      "condition": {"tagState": "any", "olderThan": "1d"}}
+   ]
+   JSON
+   gcloud artifacts repositories set-cleanup-policies forecast \
+     --location="$REGION" --policy=cleanup.json --no-dry-run
+   ```
+8. **Point the site at it.** Set `VITE_API_BASE=https://api.whentoleave.me` in the Pages
+   environment, as a Text variable for Production, in the same change that adds the hostname to `connect-src`
+   in `web/public/_headers`. Otherwise the CSP blocks every lookup and the panel reports
+   an unreachable service.
+
+`scripts/gcp-setup.sh` covers the GCP setup above and ends by listing these steps. It
+performs none of them.
 
 ---
 
@@ -401,6 +467,26 @@ exist to make an overrun **loud and early** rather than a silently half-empty sw
   process exits non-zero only if every single call failed.
 - The key lives in GitHub Secrets and a gitignored `.env`. Never in the repo, never
   in `web/`.
+
+The service adds its own, because it is the one piece a stranger can make spend money:
+
+- **Global daily ceiling** on routing calls (`forecast.quota.daily-ceiling`, 150), checked
+  and spent under a row lock so concurrent lookups cannot overshoot it.
+- **Shared daily search ceiling** of 1000 (`forecast.search.daily-ceiling`), so many
+  visitors' address searches cannot add up to unlimited search calls.
+- **Per-IP daily limits** on lookups and searches, IPv6 keyed by /64. IPs are HMAC'd
+  before they are stored, and address-search text is never logged.
+- **New corridors cost a visitor something.** A corridor row is only written after the kill
+  switch, the per-IP limit and the global ceiling have all passed, and only once a
+  sample has been fetched for it.
+- **Only calls that reach TomTom count.** A lookup that sends nothing is refunded.
+- **CORS** allows only `https://whentoleave.me` and `https://www.whentoleave.me`
+  (`forecast.edge.allowed-origins`).
+- **Cloudflare rate-limit rule** `api-per-ip`, which blocks a flood before it reaches Cloud
+  Run.
+- **Cloud Run at 0–2 instances**, plus a **$1 GCP spend cap** scoped to Cloud Run.
+- **Artifact Registry cleanup policy**: keep the last five images, delete anything older
+  than a day, so image storage stays inside the free tier.
 
 ### Why departure times cannot be batched
 

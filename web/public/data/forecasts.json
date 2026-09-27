@@ -1,7 +1,7 @@
 {
-  "generatedAt" : "2026-09-20T13:34:36Z",
-  "sweepsSampled" : 4,
-  "totalSamples" : 1820,
+  "generatedAt" : "2026-09-27T14:40:50Z",
+  "sweepsSampled" : 5,
+  "totalSamples" : 2275,
   "routes" : [ {
     "id" : "sjsu-sf",
     "name" : "SJSU → SF Financial District",
@@ -10,373 +10,373 @@
       "MONDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3721,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 4537,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 4748,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 4214,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4019,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4007,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4052,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4019,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4216,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 4442,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 4682,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 4600,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4203,
-        "n" : 4
+        "n" : 5
       } ],
       "TUESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3885,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 5166,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 5217,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 4566,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4290,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4264,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4191,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4191,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4434,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 4820,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 5400,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 5552,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4723,
-        "n" : 4
+        "n" : 5
       } ],
       "WEDNESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3906,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 5135,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 5295,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 4692,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4386,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4330,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4271,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4275,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4543,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 4919,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 5446,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 5612,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4791,
-        "n" : 4
+        "n" : 5
       } ],
       "THURSDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3903,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 5064,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 5304,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 4666,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4437,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4417,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4333,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4367,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4656,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 5052,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 5638,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 5848,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4901,
-        "n" : 4
+        "n" : 5
       } ],
       "FRIDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3697,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 4179,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 4392,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 4255,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4191,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4262,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4301,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4324,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4464,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 4717,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 4952,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 4947,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4479,
-        "n" : 4
+        "n" : 5
       } ],
       "SATURDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3557,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 3662,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 3798,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 3941,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 4119,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 4252,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 4275,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 4305,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 4384,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 4456,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 4467,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 4372,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 4193,
-        "n" : 4
+        "n" : 5
       } ],
       "SUNDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 3533,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 3579,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 3663,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 3730,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 3824,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 3893,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 3888,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 3889,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 3897,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 3899,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 3891,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 3906,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 3787,
-        "n" : 4
+        "n" : 5
       } ]
     }
   }, {
@@ -386,374 +386,374 @@
     "buckets" : {
       "MONDAY" : [ {
         "slotHour" : 6,
-        "medianSeconds" : 1492,
-        "n" : 4
+        "medianSeconds" : 1490,
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1809,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2185,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1902,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1673,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1623,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1604,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1596,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1614,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1646,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1716,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1804,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1751,
-        "n" : 4
+        "n" : 5
       } ],
       "TUESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1512,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1950,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2469,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2055,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1759,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1695,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1666,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1648,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1669,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1713,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1830,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2007,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1888,
-        "n" : 4
+        "n" : 5
       } ],
       "WEDNESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1510,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1959,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2497,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2062,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1757,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1693,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1666,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1648,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1669,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1712,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1822,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1977,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1879,
-        "n" : 4
+        "n" : 5
       } ],
       "THURSDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1509,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1922,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2416,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2039,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1763,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1704,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1675,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1656,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1675,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1724,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1852,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2026,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1907,
-        "n" : 4
+        "n" : 5
       } ],
       "FRIDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1489,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1682,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1902,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1780,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1688,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1682,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1674,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1665,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1690,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1727,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1786,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1834,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1777,
-        "n" : 4
+        "n" : 5
       } ],
       "SATURDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1444,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1469,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1500,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1520,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1564,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1610,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1634,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1636,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1645,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1651,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1652,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1645,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1620,
-        "n" : 4
+        "n" : 5
       } ],
       "SUNDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1438,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1455,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1475,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1481,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1498,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1516,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1523,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1522,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1525,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1527,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1534,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1543,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1540,
-        "n" : 4
+        "n" : 5
       } ]
     }
   }, {
@@ -764,373 +764,373 @@
       "MONDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1042,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1074,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1132,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1136,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1146,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1186,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1227,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1248,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1290,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1407,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1557,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1580,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1364,
-        "n" : 4
+        "n" : 5
       } ],
       "TUESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1044,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1085,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1167,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1170,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1179,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1237,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1307,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1346,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1435,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1657,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1914,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1967,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1688,
-        "n" : 4
+        "n" : 5
       } ],
       "WEDNESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1044,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1088,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1177,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1176,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1184,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1248,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1329,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1381,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1500,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1788,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2103,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2157,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1837,
-        "n" : 4
+        "n" : 5
       } ],
       "THURSDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1044,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1082,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1162,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1173,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1193,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1266,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1346,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1392,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1494,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1726,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1988,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2039,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1787,
-        "n" : 4
+        "n" : 5
       } ],
       "FRIDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1039,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1063,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1105,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1123,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1157,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1211,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1268,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1289,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1326,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1435,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1578,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1589,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1404,
-        "n" : 4
+        "n" : 5
       } ],
       "SATURDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1038,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1057,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1088,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1090,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1102,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1134,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1169,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1186,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1216,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1278,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1343,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1415,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1399,
-        "n" : 4
+        "n" : 5
       } ],
       "SUNDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1042,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1059,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1082,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1077,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1082,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1103,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1127,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1143,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1172,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1242,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1331,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1407,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1336,
-        "n" : 4
+        "n" : 5
       } ]
     }
   }, {
@@ -1141,373 +1141,373 @@
       "MONDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1382,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1714,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2100,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1760,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1549,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1525,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1523,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1520,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1550,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1609,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1699,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1736,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1623,
-        "n" : 4
+        "n" : 5
       } ],
       "TUESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1416,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1979,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2556,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1982,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1636,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1579,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1567,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1560,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1615,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1732,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1930,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2127,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1895,
-        "n" : 4
+        "n" : 5
       } ],
       "WEDNESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1414,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1964,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2548,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1976,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1641,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1587,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1574,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1567,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1621,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1735,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1927,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2150,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1921,
-        "n" : 4
+        "n" : 5
       } ],
       "THURSDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1412,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1938,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2478,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1966,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1651,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1605,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1592,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1583,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1643,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1757,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1960,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2170,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1936,
-        "n" : 4
+        "n" : 5
       } ],
       "FRIDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1372,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1577,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1823,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1654,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1565,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1576,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1580,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1574,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1602,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1648,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1709,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1739,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1641,
-        "n" : 4
+        "n" : 5
       } ],
       "SATURDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1323,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1352,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1393,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1411,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1447,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1478,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1492,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1492,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1501,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1513,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1523,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1518,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1485,
-        "n" : 4
+        "n" : 5
       } ],
       "SUNDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1319,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1334,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1358,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1374,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 1405,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 1427,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 1434,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1431,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1436,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 1443,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 1449,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 1456,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 1438,
-        "n" : 4
+        "n" : 5
       } ]
     }
   }, {
@@ -1518,373 +1518,373 @@
       "MONDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1923,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 2415,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2636,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2268,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2091,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2058,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2016,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 1980,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 1987,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2032,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2115,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2208,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2109,
-        "n" : 4
+        "n" : 5
       } ],
       "TUESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1924,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 2624,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 3115,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2609,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2296,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2242,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2168,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2092,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2100,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2183,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2326,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2511,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2394,
-        "n" : 4
+        "n" : 5
       } ],
       "WEDNESDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1939,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 2642,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 3120,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2668,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2411,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2355,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2259,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2164,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2160,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2255,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2408,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2562,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2445,
-        "n" : 4
+        "n" : 5
       } ],
       "THURSDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1932,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 2597,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 3094,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2660,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2398,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2372,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2284,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2211,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2254,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2372,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2589,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2824,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2642,
-        "n" : 4
+        "n" : 5
       } ],
       "FRIDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1868,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 2165,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 2420,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2263,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2215,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2258,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2247,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2223,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2297,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2481,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2745,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2765,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2403,
-        "n" : 4
+        "n" : 5
       } ],
       "SATURDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1741,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1792,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1908,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 2069,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2322,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2608,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2752,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2776,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2860,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2927,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2927,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2838,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2606,
-        "n" : 4
+        "n" : 5
       } ],
       "SUNDAY" : [ {
         "slotHour" : 6,
         "medianSeconds" : 1733,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 7,
         "medianSeconds" : 1762,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 8,
         "medianSeconds" : 1819,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 9,
         "medianSeconds" : 1914,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 10,
         "medianSeconds" : 2072,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 11,
         "medianSeconds" : 2255,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 12,
         "medianSeconds" : 2361,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 13,
         "medianSeconds" : 2382,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 14,
         "medianSeconds" : 2417,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 15,
         "medianSeconds" : 2460,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 16,
         "medianSeconds" : 2440,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 17,
         "medianSeconds" : 2362,
-        "n" : 4
+        "n" : 5
       }, {
         "slotHour" : 18,
         "medianSeconds" : 2222,
-        "n" : 4
+        "n" : 5
       } ]
     }
   } ]

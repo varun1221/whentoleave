@@ -62,9 +62,10 @@ jobs:
       # through this import. It connects as forecast_import, which can read and add to
       # corridor and sample and nothing else (scripts/neon-import-role.sql), so a leak of
       # this credential costs junk rows in public data, never the counters or settings.
-      # The importer skips rows it already has, so a failed week is caught up by the next.
+      # The importer skips rows it already has, so a failed week is caught up by the next,
+      # or at once by dispatching `aggregate`, which calls no API.
       - name: Load the sweep into Neon
-        if: ${{ inputs.mode == '' || inputs.mode == 'sweep' }}
+        if: ${{ inputs.mode == '' || inputs.mode == 'sweep' || inputs.mode == 'aggregate' }}
         env:
           DB_URL: ${{ secrets.SEED_DB_URL }}
           DB_USER: forecast_import

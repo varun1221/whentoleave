@@ -84,7 +84,12 @@ public record ForecastProperties(Tomtom tomtom, Cache cache, Quota quota, Lookup
      *
      * <p>{@code dailyCeiling} is search's counterpart to the lookup quota: per-IP budgets
      * alone do not bound a caller who controls many addresses.
+     *
+     * <p>{@code biasLat}/{@code biasLon} rank results near that point first without
+     * excluding the rest: every seeded corridor is in the Bay Area, and an unbiased
+     * "Montgomery St" answers with five towns in Illinois.
      */
     public record Search(int perIpDaily, int dailyCeiling, int minQueryLength,
-            int resultLimit, String countrySet, int cacheTtlHours) {}
+            int resultLimit, String countrySet, int cacheTtlHours, double biasLat,
+            double biasLon) {}
 }

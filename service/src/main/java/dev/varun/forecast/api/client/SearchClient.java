@@ -28,6 +28,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class SearchClient {
 
+    /**
+     * Every kind of place a visitor might start or end at. Geo is cities and
+     * neighbourhoods — without it "Oakland" answers with the zoo and the airport, never
+     * Oakland — and Addr is the interpolated house numbers PAD has no exact point for.
+     */
+    static final String INDEXES = "Geo,PAD,Addr,Str,POI";
+
     private final ForecastProperties props;
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder()
@@ -57,7 +64,9 @@ public class SearchClient {
                 + "?key=" + enc(props.tomtom().apiKey())
                 + "&limit=" + props.search().resultLimit()
                 + "&countrySet=" + enc(props.search().countrySet())
-                + "&typeahead=true&idxSet=PAD,Str,POI";
+                + "&lat=" + props.search().biasLat()
+                + "&lon=" + props.search().biasLon()
+                + "&typeahead=true&idxSet=" + INDEXES;
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(6))

@@ -93,6 +93,12 @@ forecast:
     # Autocomplete fires per keystroke. Without a floor, every single letter typed is a
     # billable request.
     min-query-length: 3
-    result-limit: 5
+    # Enough that a city, its streets and a few landmarks all fit. The limit does not
+    # change the cost: it is one TomTom request however many results come back.
+    result-limit: 8
     country-set: US
+    # Ranks results near the Bay Area first, where every seeded corridor is. A bias, not
+    # a fence: TomTom only restricts to a circle when a radius is also sent.
+    bias-lat: 37.6
+    bias-lon: -122.1
     cache-ttl-hours: 24

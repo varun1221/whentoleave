@@ -84,7 +84,9 @@ class SearchClientTest {
 
             assertTrue(stub.lastUri().contains("limit=5"));
             assertTrue(stub.lastUri().contains("countrySet=US"));
+            assertTrue(stub.lastUri().contains("lat=37.6&lon=-122.1"));
             assertTrue(stub.lastUri().contains("typeahead=true"));
+            assertTrue(stub.lastUri().contains("idxSet=Geo,"), "cities must be searchable");
         }
     }
 

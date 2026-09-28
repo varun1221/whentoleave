@@ -62,7 +62,7 @@ public final class TestProps {
                 new ForecastProperties.Quota(150),
                 new ForecastProperties.Lookup(List.of(6, 7, 8), lookupPerIp),
                 new ForecastProperties.Search(searchPerIp, searchDailyCeiling, minQueryLength,
-                        5, "US", 24),
+                        5, "US", 24, 37.6, -122.1),
                 new ForecastProperties.KillSwitch(killSwitchSeconds),
                 new ForecastProperties.Edge(originSecret, List.of()),
                 new ForecastProperties.Privacy(ipSecret));

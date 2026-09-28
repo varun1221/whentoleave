@@ -57,6 +57,8 @@ forecast:
     min-query-length: 3
     result-limit: 5
     country-set: US
+    bias-lat: 37.6
+    bias-lon: -122.1
     cache-ttl-hours: 24
 
 logging:

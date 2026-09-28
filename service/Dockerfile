@@ -1,10 +1,5 @@
-# The service as a plain JVM jar, which is what step 13 deploys.
-#
-# Spec §9.6 puts the native image last on purpose: get the service working as a jar,
-# deploy it, verify it over HTTP, and only then fight GraalVM's reflection config. A
-# broken native build on top of an unverified request path is two problems at once, and
-# this file is the baseline the native one will be measured against — the README wants a
-# cold-start number from before and after.
+# The service as a plain JVM jar, which is what production runs. The spec's native image
+# (§9.6) was dropped; see the README.
 #
 # Build context is the repo root, because the Gradle wrapper and settings.gradle.kts live
 # there: docker build -f service/Dockerfile .

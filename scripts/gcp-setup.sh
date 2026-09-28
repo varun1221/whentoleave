@@ -511,7 +511,7 @@ fi
 stage "What happens on the next push"
 say "GCP is configured. Pushing anything under service/ to main now builds the"
 say "jar image, pushes it, and deploys it. You can also fire it by hand:"
-note "  gh workflow run deploy-service.yml -f flavor=jar"
+note "  gh workflow run deploy-service.yml"
 say ""
 say "Its last step asks Cloud Run directly for /api/quota and expects a 403."
 say "That passes from the first revision: the origin secret is already in"

@@ -38,19 +38,19 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | Piece | State |
 |---|---|
 | Java 21 sampler (`sweep`, `aggregate`, `probe`, `spread`) | Working, 32 unit tests green |
-| Sweeps run | Four: 2026-09-05, 09-12, 09-13, 09-20 — 1,820 calls, 1,820 rows, zero failures |
-| `data/samples/*.jsonl` | 364 rows per route across 5 routes |
-| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 4` |
-| Weekly `sample` workflow | Two manual runs on 2026-09-12, then unattended on 09-13 and 09-20, committing its own data each time |
+| Sweeps run | Five: 2026-09-05, 09-12, 09-13, 09-20, 09-27 — 2,275 calls, 2,275 rows, zero failures |
+| `data/samples/*.jsonl` | 455 rows per route across 5 routes |
+| `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 5` |
+| Weekly `sample` workflow | Two manual runs on 2026-09-12, then unattended every Sunday since 09-13, committing its own data and loading it into Neon |
 | Phase 2 service | **Deployed 2026-09-26** — Cloud Run `forecast-service` in us-west1, serving [api.whentoleave.me](https://api.whentoleave.me/actuator/health) behind Cloudflare |
 | Tests | 321 — 32 sampler, 211 service (9 need a Postgres user that can create roles, as CI has), 78 web |
-| React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
+| React heatmap, departure curve, leave-by panel | Working |
 | Lookup panel (step 15) | **Live** — `VITE_API_BASE` is set in Pages; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
 | Live site | **Deployed 2026-09-20** — [whentoleave.me](https://whentoleave.me) and `www`, on Cloudflare Pages, HTTPS with a valid cert, `_headers` confirmed applying at the edge |
-| Native image (step 14) | **Dropped** 2026-09-28 — configured but never built; the jar is what runs. See below |
-| `deploy-service.yml` | Deploys the jar on every push to `main` under `service/**`. Its `native` option is dormant, since the native image was dropped |
-| Sweeps into Neon | `sample` imports each sweep into the database the API reads, once its secrets are set — see [Loading each sweep into Neon](#loading-each-sweep-into-neon) |
+| Native image (step 14) | **Dropped** 2026-09-28 — never built; the jar is what runs. See below |
+| `deploy-service.yml` | Deploys the jar on every push to `main` under `service/**` |
+| Sweeps into Neon | **Live** 2026-09-28 — `sample` imports each sweep into the database the API reads; see [Loading each sweep into Neon](#loading-each-sweep-into-neon) |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -82,21 +82,18 @@ Phase 2, in order:
    `service/**`. It answers on
    `api.whentoleave.me` through a Cloud Run domain mapping and a proxied Cloudflare
    record; the setup is under [Deploying the service](#deploying-the-service).
-2. ~~**Native image, last.**~~ Dropped 2026-09-28. The GraalVM plugin, the reflection
-   hints and `service/Dockerfile.native` are in place and Spring's AOT processing runs
-   clean, but the image was never built: `native-image` was OOM-killed (exit 137) at 4m53s
-   on an 8GB laptop, and a CI build would need a larger runner than this private repo
-   gets. The jar serves the site, so production stays on it and `SERVICE_FLAVOR` stays
-   unset.
+2. ~~**Native image, last.**~~ Dropped 2026-09-28. It was configured (the GraalVM
+   plugin, reflection hints and a native Dockerfile, with Spring's AOT processing running
+   clean) but never built: `native-image` was OOM-killed (exit 137) at 4m53s on an 8GB
+   laptop. The jar serves the site well enough that a bigger build machine wasn't worth
+   it, so the native configuration was removed.
 3. ~~**Point the frontend at the deployed API**~~ by setting `VITE_API_BASE` in the Pages
    environment. Done 2026-09-26 — `https://api.whentoleave.me`, a plain-text variable for
    Production — and the CSP's
    `connect-src` names it, so the lookup panel is live.
 
-What remains: setting the import's secrets so each sweep reaches the API
-([#7](https://github.com/varun1221/forecastapp/issues/7)), and tuning the daily limits
-once TomTom's real allowances are recorded
-([#12](https://github.com/varun1221/forecastapp/issues/12)).
+Phase 2 is complete as of 2026-09-28. The site, the API and the weekly data pipeline all
+run unattended.
 
 ---
 
@@ -324,10 +321,6 @@ Federation, and everything secret lives in GCP Secret Manager, so nothing sensit
 passes through the deploy at all. The only database credential Actions holds is the
 weekly import's, a role that can only add public data (see
 [Loading each sweep into Neon](#loading-each-sweep-into-neon)).
-
-It always builds the jar. The workflow still has a `native` option (a `workflow_dispatch`
-input and the repository variable `SERVICE_FLAVOR`), but it is dormant: the native image
-was dropped before it was ever built, and `SERVICE_FLAVOR` stays unset.
 
 That means some one-time setup outside the repo. In GCP, once:
 

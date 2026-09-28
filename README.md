@@ -48,8 +48,8 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | Lookup panel (step 15) | **Live** — `VITE_API_BASE` is set in Pages; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
 | Live site | **Deployed 2026-09-20** — [whentoleave.me](https://whentoleave.me) and `www`, on Cloudflare Pages, HTTPS with a valid cert, `_headers` confirmed applying at the edge |
-| Native image (step 14) | Configured — GraalVM plugin, reflection hints, `Dockerfile.native` — and **never built**: see below |
-| `deploy-service.yml` + both Dockerfiles | The jar path deploys on every push to `main` under `service/**`; the native path has never run |
+| Native image (step 14) | **Dropped** 2026-09-28 — configured but never built; the jar is what runs. See below |
+| `deploy-service.yml` | Deploys the jar on every push to `main` under `service/**`. Its `native` option is dormant, since the native image was dropped |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -81,21 +81,18 @@ Phase 2, in order:
    `service/**`. It answers on
    `api.whentoleave.me` through a Cloud Run domain mapping and a proxied Cloudflare
    record; the setup is under [Deploying the service](#deploying-the-service).
-2. **Native image, last.** Configured but not yet built: the GraalVM plugin, the
-   reflection hints every Jackson-bound record needs, and `service/Dockerfile.native`
-   are all in place, and Spring's AOT processing runs clean. The compile itself is what
-   is missing — `native-image`'s static analysis was OOM-killed (exit 137) at 4m53s on a
-   laptop with 8GB of RAM, of which the Docker VM can have less than half. It wants a
-   machine with more memory than this one has, so the honest place to build it is CI.
-   Cold start measured before and after, both numbers here, once it has been built
-   somewhere that can build it.
+2. ~~**Native image, last.**~~ Dropped 2026-09-28. The GraalVM plugin, the reflection
+   hints and `service/Dockerfile.native` are in place and Spring's AOT processing runs
+   clean, but the image was never built: `native-image` was OOM-killed (exit 137) at 4m53s
+   on an 8GB laptop, and a CI build would need a larger runner than this private repo
+   gets. The jar serves the site, so production stays on it and `SERVICE_FLAVOR` stays
+   unset.
 3. ~~**Point the frontend at the deployed API**~~ by setting `VITE_API_BASE` in the Pages
    environment. Done 2026-09-26 — `https://api.whentoleave.me`, a plain-text variable for
    Production — and the CSP's
    `connect-src` names it, so the lookup panel is live.
 
-What remains is the native image and the smaller tickets filed alongside it on
-2026-09-26 — the most pressing being that weekly sweeps do not yet reach the database the
+What remains is the smaller tickets filed on 2026-09-26 — the most pressing being that weekly sweeps do not yet reach the database the
 API reads ([#7](https://github.com/varun1221/forecastapp/issues/7)), so from the
 2026-09-27 sweep on the static heatmap is ahead of the API until they do.
 
@@ -213,8 +210,8 @@ Neon Postgres  (corridor, sample, counters)   +   TomTom routing and search
 
 Live since 2026-09-26. The `sample` table doubles as the cache, per-IP and global daily
 counters live in Postgres beside it, and a kill switch pauses every paid call at once.
-GraalVM native image compilation comes last and has not happened yet. Full design in the
-spec.
+The spec's last step, a GraalVM native image, was dropped: the service runs as a plain
+JVM jar. Full design in the spec.
 
 The spec names Bucket4j for the per-IP limit; the service uses a Postgres day counter
 instead. An in-process bucket is forgotten when Cloud Run scales to zero and counted
@@ -324,11 +321,9 @@ long-lived credential** — GitHub authenticates as this repository via Workload
 Federation, and everything secret lives in GCP Secret Manager, so nothing sensitive
 passes through Actions at all.
 
-Which of the two images it builds is a switch, not a rewrite: `FLAVOR` defaults to `jar`,
-a `workflow_dispatch` can pick `native` for one run, and the repository variable
-`SERVICE_FLAVOR` makes that the standing choice. The default is the jar because that is
-the path verified over HTTP — §9.6 puts the native image strictly after a working deploy,
-and a switch keeps that ordering from being an accident of which file the workflow names.
+It always builds the jar. The workflow still has a `native` option (a `workflow_dispatch`
+input and the repository variable `SERVICE_FLAVOR`), but it is dormant: the native image
+was dropped before it was ever built, and `SERVICE_FLAVOR` stays unset.
 
 That means some one-time setup outside the repo. In GCP, once:
 

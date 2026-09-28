@@ -57,3 +57,26 @@ jobs:
           fi
           git commit -m "data: weekly sweep $(date -u +%Y-%m-%d)"
           git push
+
+      # Issue #7: the live API reads Neon, not these files, so a sweep only reaches it
+      # through this import. It connects as forecast_import, which can read and add to
+      # corridor and sample and nothing else (scripts/neon-import-role.sql), so a leak of
+      # this credential costs junk rows in public data, never the counters or settings.
+      # The importer skips rows it already has, so a failed week is caught up by the next.
+      - name: Load the sweep into Neon
+        if: ${{ inputs.mode == '' || inputs.mode == 'sweep' }}
+        env:
+          DB_URL: ${{ secrets.SEED_DB_URL }}
+          DB_USER: forecast_import
+          DB_PASSWORD: ${{ secrets.SEED_DB_PASSWORD }}
+        run: |
+          if [ -z "$DB_URL" ] && [ -z "$DB_PASSWORD" ]; then
+            echo "::warning::SEED_DB_URL and SEED_DB_PASSWORD are not set, so the API is not getting this sweep. See README, \"Loading each sweep into Neon\"."
+            exit 0
+          fi
+          # One without the other is a setup mistake, not a choice to skip.
+          if [ -z "$DB_URL" ] || [ -z "$DB_PASSWORD" ]; then
+            echo "::error::Only one of SEED_DB_URL and SEED_DB_PASSWORD is set."
+            exit 1
+          fi
+          ./gradlew :service:bootRun --args='--import-seed --spring.profiles.active=import'

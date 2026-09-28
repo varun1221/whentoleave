@@ -1,0 +1,14 @@
+# The seed import as a command that finishes, for the weekly sweep (issue #7):
+#
+#   ./gradlew :service:bootRun --args='--import-seed --spring.profiles.active=import'
+#
+# It connects as forecast_import (scripts/neon-import-role.sql), which may only read and
+# add to corridor and sample. So nothing else may run: no web server to keep the process
+# alive, and no Flyway, which reads its history table and would try to migrate. The
+# schema is the deployed service's to change, and Hibernate's validate still fails the
+# import if the two disagree.
+spring:
+  main:
+    web-application-type: none
+  flyway:
+    enabled: false

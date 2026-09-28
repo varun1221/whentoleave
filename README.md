@@ -43,13 +43,14 @@ a visitor look up their own route. **Phase 1 must be live before Phase 2 begins.
 | `web/public/data/forecasts.json` | Built, 455 buckets, no empty cells, every `n = 4` |
 | Weekly `sample` workflow | Two manual runs on 2026-09-12, then unattended on 09-13 and 09-20, committing its own data each time |
 | Phase 2 service | **Deployed 2026-09-26** — Cloud Run `forecast-service` in us-west1, serving [api.whentoleave.me](https://api.whentoleave.me/actuator/health) behind Cloudflare |
-| Tests | 312 passing — 32 sampler, 202 service, 78 web |
+| Tests | 321 — 32 sampler, 211 service (9 need a Postgres user that can create roles, as CI has), 78 web |
 | React heatmap, departure curve, leave-by panel | Working, 71 unit tests green |
 | Lookup panel (step 15) | **Live** — `VITE_API_BASE` is set in Pages; 10 tests drive the form itself — picking a place, the 429, an unreachable service |
 | `npm run build` | Succeeds |
 | Live site | **Deployed 2026-09-20** — [whentoleave.me](https://whentoleave.me) and `www`, on Cloudflare Pages, HTTPS with a valid cert, `_headers` confirmed applying at the edge |
 | Native image (step 14) | **Dropped** 2026-09-28 — configured but never built; the jar is what runs. See below |
 | `deploy-service.yml` | Deploys the jar on every push to `main` under `service/**`. Its `native` option is dormant, since the native image was dropped |
+| Sweeps into Neon | `sample` imports each sweep into the database the API reads, once its secrets are set — see [Loading each sweep into Neon](#loading-each-sweep-into-neon) |
 
 Every one of the 455 grid cells is populated. The frontend renders the complete week
 for all five corridors with no interaction required.
@@ -92,9 +93,10 @@ Phase 2, in order:
    Production — and the CSP's
    `connect-src` names it, so the lookup panel is live.
 
-What remains is the smaller tickets filed on 2026-09-26 — the most pressing being that weekly sweeps do not yet reach the database the
-API reads ([#7](https://github.com/varun1221/forecastapp/issues/7)), so from the
-2026-09-27 sweep on the static heatmap is ahead of the API until they do.
+What remains: setting the import's secrets so each sweep reaches the API
+([#7](https://github.com/varun1221/forecastapp/issues/7)), and tuning the daily limits
+once TomTom's real allowances are recorded
+([#12](https://github.com/varun1221/forecastapp/issues/12)).
 
 ---
 
@@ -265,7 +267,7 @@ API is on its own hostname, set at build time as `VITE_API_BASE`.
 Tests:
 
 ```bash
-./gradlew build              # sampler + service, 234 tests
+./gradlew build              # sampler + service, 243 tests
 cd web && npm test           # 78 tests
 ```
 
@@ -319,7 +321,9 @@ code. The kill switch is cached for 30 seconds, so a flip takes that long to sho
 image, push it to Artifact Registry, `gcloud run deploy` with the §7 flags. It holds **no
 long-lived credential** — GitHub authenticates as this repository via Workload Identity
 Federation, and everything secret lives in GCP Secret Manager, so nothing sensitive
-passes through Actions at all.
+passes through the deploy at all. The only database credential Actions holds is the
+weekly import's, a role that can only add public data (see
+[Loading each sweep into Neon](#loading-each-sweep-into-neon)).
 
 It always builds the jar. The workflow still has a `native` option (a `workflow_dispatch`
 input and the repository variable `SERVICE_FLAVOR`), but it is dormant: the native image
@@ -367,8 +371,9 @@ Finally, five **repository variables**
 | `GCP_DEPLOY_SA` | `deploy@forecast-470112.iam.gserviceaccount.com` |
 | `DB_USER` | `forecast` |
 
-**The seeded history is a separate, one-off import**, not part of the image: point the
-importer at Neon from a laptop, once, rather than shipping `data/` to production.
+**The seeded history is imported, not shipped in the image**: run the importer against
+Neon from a laptop once, rather than putting `data/` in production. After that, the
+weekly sweep keeps Neon current on its own (next section).
 
 ```bash
 DB_URL=... DB_USER=... DB_PASSWORD=... ./gradlew :service:bootRun --args='--import-seed'
@@ -427,6 +432,41 @@ The rest happens outside the workflow, once, in this order:
 
 `scripts/gcp-setup.sh` covers the GCP setup above and ends by listing these steps. It
 performs none of them.
+
+### Loading each sweep into Neon
+
+The live API reads Neon, not `data/samples/`. So after the weekly `sample` workflow
+commits a sweep, its last step imports it:
+
+```bash
+./gradlew :service:bootRun --args='--import-seed --spring.profiles.active=import'
+```
+
+The `import` profile runs with no web server and no Flyway, and exits when the import is
+done. The importer skips rows it already has, so a missed week is caught up by the next
+run.
+
+This is the one place a database credential passes through Actions, so it belongs to a
+role that can do almost nothing. `forecast_import` can read and add rows to `corridor` and
+`sample`, which hold public traffic data. It can't reach the per-IP counters, the quota
+or the kill switch, and it can't update, delete or create anything. `ImportRoleTest`
+checks each of those limits against the real grants script in CI.
+
+Once:
+
+1. In the Neon SQL Editor, connected as the role that owns the tables, run
+   `scripts/neon-import-role.sql` with its placeholder replaced by a generated password
+   (`openssl rand -hex 32`). Create the role in SQL, not in the Neon console: roles made
+   in the console join `neon_superuser`, which is exactly the reach this one must not
+   have.
+2. Add two repository secrets:
+
+   ```bash
+   gh secret set SEED_DB_URL        # the same JDBC URL as forecast-db-url
+   gh secret set SEED_DB_PASSWORD   # the password from step 1
+   ```
+
+Until both are set, the step skips with a warning rather than failing the sweep.
 
 ---
 

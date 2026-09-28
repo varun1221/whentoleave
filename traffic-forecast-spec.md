@@ -1,6 +1,6 @@
 # Project Spec: Departure Time Forecaster
 
-A build spec for Claude Code. Read this whole document before writing any code.
+The build spec for this project. Read the whole document before writing any code.
 
 The project ships in two phases. **Phase 1 must be complete, deployed, and live on the custom domain before Phase 2 begins.** Phase 1 is the demo; Phase 2 is the depth. Do not interleave them.
 

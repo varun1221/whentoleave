@@ -604,3 +604,9 @@ web/                            Vite project root
 .github/workflows/sample.yml    weekly cron + manual dispatch
 traffic-forecast-spec.md        the full build spec, both phases
 ```
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).

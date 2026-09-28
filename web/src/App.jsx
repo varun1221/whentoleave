@@ -169,9 +169,9 @@ export default function App() {
       <section className="hero">
         <p className="eyebrow">Bay Area commute forecasts</p>
         <h1>
-          Pick the hour,
+          Pick the hour
           <br />
-          <span className="hero-accent">not the traffic.</span>
+          <span className="hero-accent">not the traffic</span>
         </h1>
         <p className="standfirst">
           Google Maps tells you how long a trip takes <em>now</em>. This shows how it

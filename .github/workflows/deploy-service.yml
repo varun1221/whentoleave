@@ -5,8 +5,8 @@ name: deploy-service
 # Federation: GitHub holds no long-lived service account key, only the identity of this
 # repository, which cannot be copied out of a log.
 #
-# What this needs configured once, before the first run — see README, "Deploying the
-# service". Repository *variables* (not secrets, none of these are credentials):
+# What this needs configured once, before the first run — see docs/DEPLOYING.md.
+# Repository *variables* (not secrets, none of these are credentials):
 #   GCP_PROJECT_ID, GCP_REGION, GCP_WIF_PROVIDER, GCP_DEPLOY_SA, DB_USER
 # Everything sensitive lives in GCP Secret Manager and is named below, never passed
 # through Actions: forecast-db-url, forecast-db-password, forecast-tomtom-key,
@@ -115,6 +115,6 @@ jobs:
           if [ "$code" != "403" ]; then
             echo "::error::Expected 403, got $code. forecast-origin-secret is unset or empty," \
                  "so OriginSecretFilter is trusting CF-Connecting-IP from any caller and the" \
-                 "per-IP limits can be bypassed. See README, \"Deploying the service\"."
+                 "per-IP limits can be bypassed. See docs/DEPLOYING.md."
             exit 1
           fi

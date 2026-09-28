@@ -1,5 +1,5 @@
 # The service as a plain JVM jar, which is what production runs. The spec's native image
-# (§9.6) was dropped; see the README.
+# (§9.6) was dropped; see docs/DESIGN.md.
 #
 # Build context is the repo root, because the Gradle wrapper and settings.gradle.kts live
 # there: docker build -f service/Dockerfile .

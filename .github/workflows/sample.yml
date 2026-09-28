@@ -72,7 +72,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.SEED_DB_PASSWORD }}
         run: |
           if [ -z "$DB_URL" ] && [ -z "$DB_PASSWORD" ]; then
-            echo "::warning::SEED_DB_URL and SEED_DB_PASSWORD are not set, so the API is not getting this sweep. See README, \"Loading each sweep into Neon\"."
+            echo "::warning::SEED_DB_URL and SEED_DB_PASSWORD are not set, so the API is not getting this sweep. See docs/DEPLOYING.md, \"Loading each sweep into Neon\"."
             exit 0
           fi
           # One without the other is a setup mistake, not a choice to skip.

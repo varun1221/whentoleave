@@ -182,7 +182,7 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 # STAGES: one-time GCP setup for the Cloud Run deploy (spec §9.7).
 #
-# Source of truth: README "Deploying the service" and
+# Source of truth: docs/DEPLOYING.md and
 # .github/workflows/deploy-service.yml. Nothing here is a credential the
 # workflow sees: GitHub authenticates as this repository via Workload Identity
 # Federation, and the five real secrets live in GCP Secret Manager.
@@ -518,8 +518,8 @@ say "That passes from the first revision: the origin secret is already in"
 say "Secret Manager, so the service refuses any request that skipped Cloudflare."
 say "It also means nothing works through the API hostname until step 3 below."
 say ""
-say "The rest is outside GCP's deploy, in this order. README \"Deploying the"
-say "service\" has the commands and the reasons:"
+say "The rest is outside GCP's deploy, in this order. docs/DEPLOYING.md has"
+say "the commands and the reasons:"
 step "1. Domain mapping: gcloud beta run domain-mappings create for the API"
 step "   hostname, after verifying the domain in Google Search Console."
 step "2. DNS: CNAME api -> ghs.googlehosted.com, DNS only (grey cloud) until"
@@ -533,6 +533,6 @@ step "5. VITE_API_BASE in the Pages environment, in the SAME commit that adds"
 step "   the hostname to connect-src in web/public/_headers, or CSP blocks every"
 step "   lookup and the panel reports an unreachable service."
 say ""
-open_url "https://github.com/$REPO#deploying-the-service"
+open_url "https://github.com/$REPO/blob/main/docs/DEPLOYING.md#the-service"
 
 finish

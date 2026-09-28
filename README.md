@@ -479,11 +479,19 @@ Actions on a public repo, Cloudflare Pages and Cloudflare DNS are all card-free.
 The arithmetic, rather than a hope:
 
 ```
-TomTom freemium:   20,000 routing requests/month, 2,500/day
+TomTom freemium:   Routing 2,500/day (20,000/month); Search 2,500/day, a separate
+                   allowance. One API key, shared by the sampler and the service.
 Sampler:           5 routes × 7 days × 13 hours = 455 per sweep
                    455 × 4 sweeps = 1,820/month
-Headroom:          ~18,000/month, about 10× what the sampler consumes
+Service routing:   capped at 150/day (forecast.quota.daily-ceiling)
+                   worst day, a Sunday: 455 + 150 = 605 of 2,500
+                   worst month: 1,820 + 150 × 30 = 6,320 of 20,000
+Service search:    capped at 1,000/day (forecast.search.daily-ceiling) of 2,500
 ```
+
+Because the service's caps are hard stops, it can't use enough of the shared key to
+starve a sweep, even on the day they overlap. Allowances checked in the TomTom dashboard
+on 2026-09-28.
 
 ### Guardrails
 

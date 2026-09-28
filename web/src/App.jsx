@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Heatmap from "./components/Heatmap.jsx";
 import ScaleLegend from "./components/ScaleLegend.jsx";
 import RoutePicker from "./components/RoutePicker.jsx";
@@ -6,6 +6,7 @@ import DepartureCurve from "./components/DepartureCurve.jsx";
 import LeaveByPanel from "./components/LeaveByPanel.jsx";
 import LookupPanel from "./components/LookupPanel.jsx";
 import Banner from "./components/Banner.jsx";
+import Highlights from "./components/Highlights.jsx";
 import {
   EMPTY_DARK,
   EMPTY_LIGHT,
@@ -17,8 +18,8 @@ import { dayWithin, gridStats, spreadPercent } from "./lib/grid.js";
 import { noticeFor } from "./lib/notices.js";
 import { DAY_LABEL, formatDate, hourLabel } from "./lib/format.js";
 
-/** The id the looked-up corridor takes in the picker, alongside the seeded slugs. */
-const LOOKUP_ID = "your-lookup";
+/** A looked-up corridor's picker id, kept apart from the seeded slugs. */
+const lookupId = (key) => `lookup:${key}`;
 
 /** Tracks the viewer's theme so the heatmap uses the ramp built for that surface. */
 function useDarkMode() {
@@ -66,7 +67,10 @@ export default function App() {
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [selectedDay, setSelectedDay] = useState("WEDNESDAY");
   const [showNumbers, setShowNumbers] = useState(true);
-  const [lookup, setLookup] = useState(null);
+  // Every corridor looked up this visit, oldest first, so a second lookup adds a tab
+  // rather than taking the first one's away.
+  const [lookups, setLookups] = useState([]);
+  const routeRef = useRef(null);
   const dark = useDarkMode();
   const { quota, refresh: refreshQuota } = useLookupApi();
 
@@ -91,11 +95,18 @@ export default function App() {
   // The looked-up grid is the same shape as a seeded one, so it joins the same picker
   // and flows through the same heatmap, curve and leave-by panel. It carries an id and a
   // name because the API has neither for a corridor nobody named.
-  const routes = useMemo(() => {
-    const seeded = forecasts?.routes ?? [];
-    if (!lookup) return seeded;
-    return [...seeded, { ...lookup.grid, id: LOOKUP_ID, name: lookup.name }];
-  }, [forecasts, lookup]);
+  const routes = useMemo(
+    () => [
+      ...(forecasts?.routes ?? []),
+      ...lookups.map(({ grid, key, name }) => ({
+        ...grid,
+        id: lookupId(key),
+        name,
+        lookedUp: true,
+      })),
+    ],
+    [forecasts, lookups]
+  );
 
   const route = useMemo(
     () => routes.find((r) => r.id === selectedRouteId) ?? null,
@@ -106,36 +117,44 @@ export default function App() {
   // selected route and nothing else.
   const stats = useMemo(() => (route ? gridStats(route) : null), [route]);
 
-  const onLookupResult = useCallback(({ grid, name }) => {
-    setLookup({ grid, name });
-    setSelectedRouteId(LOOKUP_ID);
+  const onLookupResult = useCallback((result) => {
+    // A corridor asked for again replaces its old tab in place, with the fresher grid.
+    setLookups((prev) =>
+      prev.some((l) => l.key === result.key)
+        ? prev.map((l) => (l.key === result.key ? result : l))
+        : [...prev, result]
+    );
+    setSelectedRouteId(lookupId(result.key));
+    // The answer is below the search it came from: bring it into view rather than
+    // leaving the visitor to find it.
+    requestAnimationFrame(() =>
+      routeRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+    );
   }, []);
 
   if (error) {
     return (
-      <main className="shell">
-        <h1>When to Leave</h1>
+      <Frame>
         <p className="error">
           Couldn’t load the forecast data ({error}). The dataset is committed to the
           repo, so this is usually a deploy or path problem rather than an outage.
         </p>
-      </main>
+      </Frame>
     );
   }
 
   if (!forecasts || !route || !stats) {
     return (
-      <main className="shell">
-        <h1>When to Leave</h1>
+      <Frame>
         <p className="loading">Loading forecasts…</p>
-      </main>
+      </Frame>
     );
   }
 
   const ramp = dark ? RAMP_DARK : RAMP_LIGHT;
   const emptyColor = dark ? EMPTY_DARK : EMPTY_LIGHT;
-  const accent = ramp[Math.floor(ramp.length / 2)];
-  const spread = spreadPercent(stats);
+  // The curve takes the brand blue, not a ramp color: it is a line, not a heat reading.
+  const accent = dark ? "#5b8def" : "#2563eb";
   // A weekday-only lookup has no Saturday row to select, so the day the panels below
   // read is clamped to one this grid actually has.
   const shownDay = dayWithin(stats, selectedDay) ?? selectedDay;
@@ -146,120 +165,155 @@ export default function App() {
   });
 
   return (
-    <main className="shell">
-      <header className="masthead">
-        <h1>When to Leave</h1>
+    <Frame updated={formatDate(forecasts.generatedAt)}>
+      <section className="hero">
+        <p className="eyebrow">Bay Area commute forecasts</p>
+        <h1>
+          Pick the hour,
+          <br />
+          <span className="hero-accent">not the traffic.</span>
+        </h1>
         <p className="standfirst">
           Google Maps tells you how long a trip takes <em>now</em>. This shows how it
-          changes across the week, so you can pick the hour instead of accepting it.
+          changes across the whole week, so you can choose when to go.
         </p>
-      </header>
 
-      <RoutePicker
-        routes={routes}
-        selectedRouteId={selectedRouteId}
-        onSelect={setSelectedRouteId}
-      />
+        {/* Only once the service has answered: an unreachable backend offers no form. */}
+        {quota && (
+          <LookupPanel
+            quota={quota}
+            onResult={onLookupResult}
+            onQuotaChange={refreshQuota}
+          />
+        )}
+      </section>
 
-      <section className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>
-              {route.name}
-              {route.partial && <span className="badge">partial profile</span>}
-            </h2>
-            <p className="subhead">
-              {route.distanceMeters != null && (
-                <>{(route.distanceMeters / 1000).toFixed(1)} km · </>
-              )}
-              {stats.empty ? (
-                <>no samples yet</>
-              ) : (
-                <>
-                  fastest {Math.round(stats.min / 60)} min · slowest{" "}
-                  {Math.round(stats.max / 60)} min
-                  {spread > 0 && <> · {spread}% spread</>}
-                </>
-              )}
-            </p>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={showNumbers}
-              onChange={(e) => setShowNumbers(e.target.checked)}
-            />
-            <span>Show minutes</span>
-          </label>
+      <section className="route-section" ref={routeRef}>
+        <RoutePicker
+          routes={routes}
+          selectedRouteId={selectedRouteId}
+          onSelect={setSelectedRouteId}
+        />
+
+        <div className="route-title">
+          <h2>
+            {route.name}
+            {route.partial && <span className="badge">Weekday peaks</span>}
+          </h2>
+          <p className="subhead">
+            {stats.empty
+              ? "No samples yet"
+              : `${spreadPercent(stats)}% slower at its worst than at its best`}
+          </p>
         </div>
 
         <Banner notice={notice} />
 
-        {route.partial && (
-          <p className="hint">
-            A looked-up corridor is sampled at weekday peak hours only — five days × nine
-            hours instead of the full 91-cell grid, which would spend the day’s shared
-            budget on a single lookup.
-          </p>
-        )}
+        {!stats.empty && <Highlights route={route} stats={stats} />}
 
-        <Heatmap
-          route={route}
-          days={stats.days}
-          hours={stats.hours}
-          min={stats.min}
-          max={stats.max}
-          best={stats.best}
-          worst={stats.worst}
-          ramp={ramp}
-          emptyColor={emptyColor}
-          selectedDay={shownDay}
-          onSelectDay={setSelectedDay}
-          showNumbers={showNumbers}
-        />
-        <ScaleLegend min={stats.min} max={stats.max} ramp={ramp} />
-        <p className="hint">
-          Click a day to load it into the curve and the leave-by panel below.
-        </p>
-      </section>
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h3>Week at a glance</h3>
+              <p className="subhead">
+                Median minutes by departure hour. Click a day to explore it below.
+              </p>
+            </div>
+            <label className="switch">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={showNumbers}
+                onChange={(e) => setShowNumbers(e.target.checked)}
+              />
+              <span className="switch-track" aria-hidden="true" />
+              <span>Show minutes</span>
+            </label>
+          </div>
 
-      {/* Only once the service has answered: an unreachable backend offers no form. */}
-      {quota && (
-        <LookupPanel
-          quota={quota}
-          onResult={onLookupResult}
-          onQuotaChange={refreshQuota}
-        />
-      )}
+          {route.partial && (
+            <p className="hint">
+              Looked-up routes are sampled at weekday peak hours only, so one lookup does
+              not spend the whole day’s shared budget.
+            </p>
+          )}
 
-      <section className="panel">
-        <div className="panel-head">
-          <h2>
-            {DAY_LABEL[shownDay]} · departure curve
-          </h2>
+          <Heatmap
+            route={route}
+            days={stats.days}
+            hours={stats.hours}
+            min={stats.min}
+            max={stats.max}
+            best={stats.best}
+            worst={stats.worst}
+            ramp={ramp}
+            emptyColor={emptyColor}
+            selectedDay={shownDay}
+            onSelectDay={setSelectedDay}
+            showNumbers={showNumbers}
+          />
+          <ScaleLegend min={stats.min} max={stats.max} ramp={ramp} />
         </div>
-        <DepartureCurve route={route} day={shownDay} accent={accent} />
-      </section>
 
-      <LeaveByPanel route={route} day={shownDay} />
+        <div className="split">
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h3>{DAY_LABEL[shownDay]} departure curve</h3>
+                <p className="subhead">How the drive changes through the day</p>
+              </div>
+            </div>
+            <DepartureCurve route={route} day={shownDay} accent={accent} />
+          </div>
+
+          <LeaveByPanel route={route} day={shownDay} />
+        </div>
+      </section>
 
       <footer className="colophon">
         <p>
           Medians across {forecasts.sweepsSampled} sweep
           {forecasts.sweepsSampled === 1 ? "" : "s"} · {forecasts.totalSamples} samples ·
-          last updated {formatDate(forecasts.generatedAt)} · departure hours{" "}
-          {hourLabel(stats.hours[0])}–{hourLabel(stats.hours[stats.hours.length - 1])}{" "}
-          Pacific.
+          departure hours {hourLabel(stats.hours[0])}–
+          {hourLabel(stats.hours[stats.hours.length - 1])} Pacific.
         </p>
         <p className="caveat">
-          These are historical averages from TomTom’s speed-profile data, reshaped into
-          a view neither TomTom nor Google Maps offers. It does not out-predict either —
-          it shows you the shape of the week they already know about.
+          Historical averages from TomTom’s speed-profile data, reshaped into a view
+          neither TomTom nor Google Maps offers. It does not out-predict either — it shows
+          you the shape of the week they already know about.
           {forecasts.sweepsSampled < 3 && (
             <> Low sample counts this early; each cell’s <em>n</em> is in its tooltip.</>
           )}
         </p>
       </footer>
-    </main>
+    </Frame>
+  );
+}
+
+/** The top bar and page column every state renders inside. */
+function Frame({ updated, children }) {
+  return (
+    <>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="/">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2" />
+                <path
+                  d="M12 7.5V12l3 2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            When to Leave
+          </a>
+          {updated && <span className="topbar-meta">Updated {updated}</span>}
+        </div>
+      </header>
+      <main className="shell">{children}</main>
+    </>
   );
 }

@@ -19,9 +19,12 @@ export default function LeaveByPanel({ route, day }) {
   );
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>Leave by</h2>
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <h3>Leave by</h3>
+          <p className="subhead">The latest departure that still arrives on time</p>
+        </div>
         <label className="arrival-field">
           <span>Arrive at {DAY_LABEL[day]}</span>
           <input
@@ -38,15 +41,14 @@ export default function LeaveByPanel({ route, day }) {
       ) : result.onTime ? (
         <>
           <p className="leave-headline">
-            Leave by <strong>{hourLabel(result.onTime.slotHour)}</strong>
+            <span className="leave-time">{hourLabel(result.onTime.slotHour)}</span>
             <span className="leave-detail">
-              {" "}
-              — {toMinutes(result.onTime.durationSeconds)} min, arriving around{" "}
+              {toMinutes(result.onTime.durationSeconds)} min drive, arriving around{" "}
               {clockLabel(result.onTime.arrivalMinute)}
             </span>
           </p>
           {result.alternatives.length > 0 && (
-            <ul className="penalty-list">
+            <ul className="penalty-list" aria-label="Leaving later">
               {result.alternatives.map((alt) => (
                 <li key={alt.slotHour}>
                   <span className="penalty-slot">{hourLabel(alt.slotHour)}</span>

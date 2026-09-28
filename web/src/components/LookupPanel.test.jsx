@@ -1,12 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LookupPanel from "./LookupPanel.jsx";
+import LookupPanel, { shortLabel } from "./LookupPanel.jsx";
 
-/**
- * The panel's job before anyone touches it: state both budgets. §10.4 — "Visible limits
- * read as intentional design; silent failures read as broken."
- */
+/** What `/api/quota` answers; the panel reads the limits off it when it has to explain one. */
 const QUOTA = {
   yourRemaining: 4,
   yourDailyLimit: 5,
@@ -82,18 +79,10 @@ afterEach(() => {
 });
 
 describe("LookupPanel", () => {
-  it("shows every budget, so a limit is visible before it is hit", () => {
-    mount();
-
-    expect(screen.getByText("4 / 5")).toBeTruthy();
-    expect(screen.getByText("18 / 20")).toBeTruthy();
-    expect(screen.getByText("137 / 150")).toBeTruthy();
-  });
-
   it("says so when the switch is thrown", () => {
     mount({ lookupsPaused: true });
 
-    expect(screen.getByText("paused")).toBeTruthy();
+    expect(screen.getByText(/lookups are paused/i)).toBeTruthy();
   });
 
   /**
@@ -126,8 +115,18 @@ describe("LookupPanel", () => {
     // full postal strings do not fit a tab label.
     expect(onResult).toHaveBeenCalledWith({
       grid: { ok: true },
+      key: `${SUGGESTIONS[0].coord}|${SUGGESTIONS[1].coord}`,
       name: "San Jose State University → Montgomery St",
     });
+  });
+
+  it("labels a point of interest by its name alone", () => {
+    expect(
+      shortLabel("San Jose State University — 150 East San Fernando Street, San Jose, CA")
+    ).toBe("San Jose State University");
+    expect(shortLabel("Montgomery Street, San Francisco, CA 94104")).toBe(
+      "Montgomery Street"
+    );
   });
 
   /**

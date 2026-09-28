@@ -26,8 +26,8 @@ export const RAMP_LIGHT = ["#e5f4de", "#9ccf84", "#c89434", "#a83f28", "#67140f"
 export const RAMP_DARK = ["#1d3a20", "#31612d", "#77802e", "#e08f4e", "#f8b8a4"];
 
 /** Cells with no sample get a flat surface tint, never a ramp color. */
-export const EMPTY_LIGHT = "#eceae4";
-export const EMPTY_DARK = "#242422";
+export const EMPTY_LIGHT = "#efeff1";
+export const EMPTY_DARK = "#1f1f23";
 
 const hexToRgb = (hex) => [
   parseInt(hex.slice(1, 3), 16),

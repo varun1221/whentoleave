@@ -4,8 +4,12 @@ import Banner from "./Banner.jsx";
 import { ApiFailure, requestLookup } from "../lib/api.js";
 import { noticeFor } from "../lib/notices.js";
 
-/** "1 Hacker Way, Menlo Park, CA" → "1 Hacker Way", for a tab label. */
-const shortLabel = (description) => description.split(",")[0].trim();
+/**
+ * A tab label from a suggestion: "1 Hacker Way, Menlo Park, CA" → "1 Hacker Way", and
+ * a point of interest ("SJSU — 150 E San Fernando St, …") keeps only its name.
+ */
+export const shortLabel = (description) =>
+  description.split(" — ")[0].split(",")[0].trim();
 
 /**
  * Any corridor, not just the seeded five.
@@ -32,6 +36,8 @@ export default function LookupPanel({ quota, onResult, onQuotaChange }) {
       const grid = await requestLookup({ origin: origin.coord, dest: dest.coord });
       onResult({
         grid,
+        // The same two ends looked up twice are one corridor, and one tab.
+        key: `${origin.coord}|${dest.coord}`,
         name: `${shortLabel(origin.description)} → ${shortLabel(dest.description)}`,
       });
     } catch (thrown) {
@@ -56,26 +62,17 @@ export default function LookupPanel({ quota, onResult, onQuotaChange }) {
     : null;
 
   return (
-    <section className="panel lookup">
-      <div className="panel-head">
-        <div>
-          <h2>Look up your own corridor</h2>
-          <p className="subhead">
-            Weekday peak hours only — {quota.yourDailyLimit} lookups per visitor a day,
-            and a corridor someone already asked about is free. A pasted{" "}
-            <code>lat,lon</code> works in place of a search.
-          </p>
-        </div>
-        <QuotaReadout quota={quota} />
-      </div>
-
-      <form className="lookup-form" onSubmit={submit}>
+    <div className="search">
+      <form className="search-bar" onSubmit={submit}>
         <PlaceField
           label="From"
           value={origin}
           onChange={setOrigin}
           placeholder="San Jose State University"
         />
+        <span className="search-arrow" aria-hidden="true">
+          →
+        </span>
         <PlaceField
           label="To"
           value={dest}
@@ -85,47 +82,22 @@ export default function LookupPanel({ quota, onResult, onQuotaChange }) {
         {/* Not disabled when the budgets are spent: a corridor that is already cached
             costs nothing and is served anyway, with a notice attached. Refusing here
             would withhold an answer the service would have given. */}
-        <button type="submit" className="lookup-submit" disabled={!ready}>
+        <button type="submit" className="search-submit" disabled={!ready}>
           {busy ? "Looking up…" : "Forecast this"}
         </button>
       </form>
 
-      <Banner notice={notice} />
-    </section>
-  );
-}
-
-/**
- * Both budgets, in the open. §10.4: visible limits read as intentional design, and a
- * visitor who can see four lookups left does not experience the fifth as a failure.
- */
-function QuotaReadout({ quota }) {
-  return (
-    <dl className="quota">
-      <div>
-        <dt>Your lookups</dt>
-        <dd>
-          {quota.yourRemaining} / {quota.yourDailyLimit}
-        </dd>
-      </div>
-      <div>
-        <dt>Your searches</dt>
-        <dd>
-          {quota.yourSearchesRemaining} / {quota.yourSearchDailyLimit}
-        </dd>
-      </div>
-      <div>
-        <dt>Shared today</dt>
-        <dd>
-          {quota.globalRemaining} / {quota.globalDailyCeiling}
-        </dd>
-      </div>
+      {/* The one budget state worth stating up front; every other limit explains
+          itself in the banner when it is actually hit. */}
       {quota.lookupsPaused && (
-        <div>
-          <dt>Live lookups</dt>
-          <dd className="quota-paused">paused</dd>
-        </div>
+        <p className="search-note quota-paused">Live lookups are paused for now.</p>
       )}
-    </dl>
+      {!quota.lookupsPaused && !notice && (
+        <p className="search-note">
+          Search any address or place, or paste a <code>lat,lon</code>
+        </p>
+      )}
+      <Banner notice={notice} />
+    </div>
   );
 }

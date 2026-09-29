@@ -11,7 +11,7 @@ minutes. At 17:00 on a Wednesday the same trip costs 36. You can see that at a g
 for every hour of every day, instead of checking a map app over and over.
 
 It runs on its own. A weekly job refreshes the data, the site and the API redeploy
-themselves, and the whole thing costs about $22 a year: the domain.
+themselves.
 
 | Step | What you do | What you get |
 |---|---|---|

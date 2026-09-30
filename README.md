@@ -169,16 +169,12 @@ separate billable API call, and no endpoint batches them. A full week is 91 call
 route; the weekday peaks (5 days × 9 hours) are 45, and they're where commute times
 actually differ.
 
-**Why five lookups a day?** It keeps a free API free. Only lookups that actually call
-TomTom count, so routes someone else has already looked up this week don't use one.
-
 **Does it cost anything to run?** The domain, about $22 a year. Everything else runs on
 free tiers, and hard caps keep it inside them. The arithmetic is in
 [docs/DESIGN.md](docs/DESIGN.md#cost-and-guardrails).
 
 **Why is the sampler plain Java but the API Spring Boot?** A 90-second weekly job that
-reads a config, makes HTTP calls and writes files uses nothing Spring provides. A
-public, rate-limited, cached API is exactly what Spring is for.
+reads a config, makes HTTP calls and writes files uses nothing Spring provides.
 
 ---
 

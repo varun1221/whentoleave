@@ -1,10 +1,10 @@
 # Design
 
-How the app works, why it is built the way it is, and what it honestly can and cannot
-tell you. For running it, see [DEVELOPING.md](DEVELOPING.md); for deploying it,
+How the app works, why it is built the way it is, and what it can and cannot tell you.
+For running it, see [DEVELOPING.md](DEVELOPING.md); for deploying it,
 [DEPLOYING.md](DEPLOYING.md).
 
-- [The honest framing](#the-honest-framing)
+- [Where the data comes from](#where-the-data-comes-from)
 - [Does the premise hold?](#does-the-premise-hold)
 - [What re-sampling actually buys](#what-re-sampling-actually-buys)
 - [Architecture](#architecture)
@@ -13,7 +13,7 @@ tell you. For running it, see [DEVELOPING.md](DEVELOPING.md); for deploying it,
 - [Known limitations](#known-limitations)
 - [Project history](#project-history)
 
-## The honest framing
+## Where the data comes from
 
 TomTom's routing API, when given a `departAt` in the future, does **not** return a live
 forecast. It prices the trip off its historical speed-profile database. That is the
@@ -22,10 +22,8 @@ behaviour this entire project rests on, and it is worth being precise about:
 > This app surfaces and reshapes a model TomTom already has into a view neither TomTom
 > nor Google Maps offers. It does not out-predict either of them.
 
-The value here is the **view** — a full week × hour grid you can read in one glance —
-and the engineering around keeping that view free to run and honest about its own
-limits. Claiming predictive power would be the one way this project could embarrass
-itself.
+The value is the **view**: a full week × hour grid you can read at a glance, plus the
+work that keeps it free to run.
 
 ## Does the premise hold?
 

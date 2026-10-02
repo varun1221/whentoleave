@@ -107,7 +107,7 @@ and reshapes it into a view that neither app offers. The value is the view.
 **Not navigation.** It tells you when to leave, not which way to go.
 
 **Not 24/7.** The built-in commutes cover 06:00–18:00, and custom routes cover weekday
-peak hours only. That's where the variation is, and where it's worth spending API calls.
+peak hours only. 
 
 ---
 

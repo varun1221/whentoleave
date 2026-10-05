@@ -87,28 +87,6 @@ GitHub Actions ─────────────────► Java sampl
 The full architecture, the cost arithmetic and the guardrails are in
 [docs/DESIGN.md](docs/DESIGN.md).
 
-### Built with
-
-**Java 21** (the sampler: no framework, one dependency) · **Spring Boot 3**, Spring
-Data JPA and Flyway (the API) · **PostgreSQL** on Neon · **React** and Vite (CSS Grid
-for the heatmap; Recharts for the curve only) · **Google Cloud Run** · **Cloudflare**
-Pages, DNS and edge rules · **GitHub Actions** · **TomTom** Routing and Search APIs
-
----
-
-## What it is not
-
-**Not a live traffic app.** The data is TomTom's historical speed profiles for each hour.
-It can't know about today's accident, today's game or today's weather.
-
-**Not a better predictor than Google or TomTom.** It takes a model TomTom already has
-and reshapes it into a view that neither app offers. The value is the view.
-
-**Not navigation.** It tells you when to leave, not which way to go.
-
-**Not 24/7.** The built-in commutes cover 06:00–18:00, and custom routes cover weekday
-peak hours only. 
-
 ---
 
 ## Quickstart

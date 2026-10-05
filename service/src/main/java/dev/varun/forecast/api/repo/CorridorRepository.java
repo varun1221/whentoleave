@@ -24,8 +24,8 @@ public interface CorridorRepository extends JpaRepository<Corridor, Long> {
      * about the same new pair at once; with a plain insert the second failed on the
      * unique constraint, and the error it logged carried both visitors' coordinates.
      *
-     * <p>Transactional here, unlike the other repositories' writes, because its caller
-     * runs outside a transaction: {@code LookupService.fill} is self-invoked.
+     * <p>Transactional here, unlike the other repositories' writes, because its caller,
+     * {@code LookupService.fill}, runs outside a transaction.
      */
     @Modifying
     @Transactional

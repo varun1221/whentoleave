@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.varun.forecast.api.DatabaseTest;
+import dev.varun.forecast.api.client.CallBudget;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -99,5 +100,25 @@ class QuotaBudgetTest extends DatabaseTest {
 
         assertEquals(0, budget.spent());
         assertEquals(2, budget.unspent());
+    }
+
+    /**
+     * A fill sends its calls concurrently, so a refund must undo the acquire its own call
+     * made. Tracked for the budget as a whole, one call's connection failure would hand
+     * back whichever call another thread acquired last.
+     */
+    @Test
+    void eachCallRefundsItsOwnAcquire() {
+        QuotaBudget budget = budgetOf(1);
+        CallBudget fromBlock = budget.forCall();
+        CallBudget toppedUp = budget.forCall();
+        fromBlock.tryAcquire();
+        toppedUp.tryAcquire();
+
+        fromBlock.refund();
+
+        assertEquals(1, budget.spent(), "the top-up still went out");
+        assertEquals(1, budget.unspent(), "the refunded call is owed back to the block");
+        assertEquals(CEILING - 2, quotas.remaining(), "the top-up stays reserved");
     }
 }

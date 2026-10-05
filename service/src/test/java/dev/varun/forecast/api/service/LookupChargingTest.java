@@ -20,13 +20,17 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -125,6 +129,33 @@ class LookupChargingTest extends DatabaseTest {
             assertEquals(14, grid.sampleCount(), "13 cached plus the one that succeeded");
             assertEquals(148, quotas.remaining(), "both calls were sent, so both count");
             assertEquals(4, perIp.remaining(Budget.LOOKUP, IP), "one lookup spent");
+        }
+    }
+
+    /**
+     * A cold corridor is a call per slot. Waiting for each answer before sending the
+     * next doubled the time a cold lookup took, so they go out together, each still
+     * spaced to the rate TomTom allows. The latency is longer than that spacing, so a fill that waited for
+     * each answer before sending the next could never have two in flight.
+     */
+    @Test
+    void aColdLookupOverlapsItsCallsWithoutExceedingTheRate() throws Exception {
+        try (StubTomTom stub = new StubTomTom(Duration.ofMillis(600))) {
+            for (int i = 0; i < 15; i++) {
+                stub.enqueue(200, ROUTE);
+            }
+
+            ForecastGrid grid = lookupsAgainst(stub.baseUrl())
+                    .lookup("37.32,-122.32", "38.32,-121.32", IP);
+
+            assertEquals(15, grid.sampleCount());
+            assertEquals(135, quotas.remaining());
+            assertTrue(stub.maxInFlight() > 1,
+                    "calls overlapped: max in flight " + stub.maxInFlight());
+            // Below the 250 ms spacing only by scheduler jitter: a sender that wakes late
+            // narrows the gap to the next one, which woke on time.
+            assertTrue(stub.shortestGap().toMillis() >= 150,
+                    "calls stayed paced: shortest gap " + stub.shortestGap());
         }
     }
 
@@ -254,22 +285,36 @@ class LookupChargingTest extends DatabaseTest {
     }
 
     /**
-     * An interrupt arrives between sending a request and reading its answer. TomTom may
-     * well have received it, so it is charged: guessing the other way is how a shutdown
-     * during a fill turns into free calls.
+     * The lookup is interrupted while its calls are between sending a request and
+     * reading the answer. TomTom may well have received them, so they are charged:
+     * guessing the other way is how a shutdown during a fill turns into free calls.
      */
     @Test
-    void anInterruptedSlotCountsAsSent() {
+    void anInterruptedFillCountsItsCallsAsSent() throws Exception {
         corridorMissing("37.25,-122.25", "38.25,-121.25", 3);
-
-        ForecastGrid grid = lookupsWhereEachCall(budget -> {
+        CountDownLatch allSent = new CountDownLatch(3);
+        LookupService lookups = lookupsWhereEachCall(budget -> {
             budget.tryAcquire();
-            throw new InterruptedException("shutting down");
-        }).lookup("37.25,-122.25", "38.25,-121.25", IP);
+            allSent.countDown();
+            Thread.sleep(60_000);
+            return Optional.of(new RoutingClient.RouteResult(1800, 40_000));
+        });
+        AtomicReference<ForecastGrid> grid = new AtomicReference<>();
+        AtomicBoolean passedOn = new AtomicBoolean();
 
-        assertTrue(Thread.interrupted(), "the interrupt is passed on, not swallowed");
-        assertEquals(12, grid.sampleCount(), "the fill stopped at the interrupt");
-        assertEquals(149, quotas.remaining(), "the interrupted call may have been sent");
+        Thread request = new Thread(() -> {
+            grid.set(lookups.lookup("37.25,-122.25", "38.25,-121.25", IP));
+            passedOn.set(Thread.currentThread().isInterrupted());
+        });
+        request.start();
+        allSent.await();
+        request.interrupt();
+        request.join(10_000);
+
+        assertFalse(request.isAlive(), "the fill stopped at the interrupt");
+        assertTrue(passedOn.get(), "the interrupt is passed on, not swallowed");
+        assertEquals(12, grid.get().sampleCount(), "no answer was read");
+        assertEquals(147, quotas.remaining(), "the interrupted calls may have been sent");
         assertEquals(4, perIp.remaining(Budget.LOOKUP, IP));
     }
 
@@ -281,10 +326,10 @@ class LookupChargingTest extends DatabaseTest {
     @Test
     void anUnexpectedFailureStillReleasesTheCallsItNeverSent() {
         corridorMissing("37.26,-122.26", "38.26,-121.26", 3);
-        int[] calls = {0};
+        AtomicInteger calls = new AtomicInteger();
 
         assertThrows(IllegalStateException.class, () -> lookupsWhereEachCall(budget -> {
-            if (calls[0]++ > 0) {
+            if (calls.getAndIncrement() > 0) {
                 throw new IllegalStateException("could not save the sample");
             }
             budget.tryAcquire();

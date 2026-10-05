@@ -21,11 +21,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Cache-first lookup for an arbitrary corridor.
@@ -43,6 +46,7 @@ public class LookupService {
     private static final List<DayOfWeek> WEEKDAYS = List.of(
             DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
             DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
+
 
     private final CorridorRepository corridors;
     private final SampleRepository samples;
@@ -104,7 +108,7 @@ public class LookupService {
             Corridor corridor = known.orElseThrow();
             log.info("lookup cache hit corridor={} samples={}", corridor.getId(),
                     fresh.size());
-            return grids.build(corridor, fresh, WEEKDAYS, hours, true);
+            return lookupGrid(corridor, fresh);
         }
 
         // Everything below this line can spend money, so the three guards sit here and
@@ -112,7 +116,7 @@ public class LookupService {
         if (!killSwitch.lookupsEnabled()) {
             // No reset time, here or in the 429: the switch ends when a human ends it,
             // and a promised midnight would be a promise nothing keeps.
-            return degraded(known, fresh, hours, ApiCode.LOOKUPS_PAUSED, null,
+            return degraded(known, fresh, ApiCode.LOOKUPS_PAUSED, null,
                     () -> LookupsUnavailableException.lookupsPaused(quotas.remaining()));
         }
 
@@ -121,7 +125,7 @@ public class LookupService {
         // visitor therefore never touches the shared budget.
         Optional<Spend> spend = perIp.tryConsume(Budget.LOOKUP, clientIp);
         if (spend.isEmpty()) {
-            return degraded(known, fresh, hours, ApiCode.RATE_LIMITED, day.resetsAt(),
+            return degraded(known, fresh, ApiCode.RATE_LIMITED, day.resetsAt(),
                     () -> RateLimitedException.used("lookups",
                             perIp.dailyLimit(Budget.LOOKUP), day.resetsAt()));
         }
@@ -131,7 +135,7 @@ public class LookupService {
         if (granted == 0) {
             // The visitor should not be charged for a global limit.
             perIp.refund(spend.get());
-            return degraded(known, fresh, hours, ApiCode.QUOTA_EXHAUSTED,
+            return degraded(known, fresh, ApiCode.QUOTA_EXHAUSTED,
                     day.resetsAt(),
                     () -> LookupsUnavailableException.budgetSpent(quotas.remaining(),
                             day.resetsAt()));
@@ -164,7 +168,13 @@ public class LookupService {
                 saved.isEmpty() ? corridor.getId() : saved.get(0).getCorridorId(),
                 fresh.size(), budget.spent(), saved.size(),
                 missing.size() - saved.size());
-        return grids.build(corridor, combined, WEEKDAYS, hours, true);
+        return lookupGrid(corridor, combined);
+    }
+
+    /** A user corridor's grid: weekday peaks only, and always labelled partial. */
+    private ForecastGrid lookupGrid(Corridor corridor, List<Sample> samples) {
+        return grids.build(corridor, samples, WEEKDAYS, props.lookup().weekdayHours(),
+                true);
     }
 
     /**
@@ -179,7 +189,7 @@ public class LookupService {
      * @param resetsAt when the limit lifts, or null for one with no scheduled end
      */
     private ForecastGrid degraded(Optional<Corridor> known, List<Sample> fresh,
-            List<Integer> hours, ApiCode notice, Instant resetsAt,
+            ApiCode notice, Instant resetsAt,
             Supplier<RuntimeException> ifEmpty) {
         if (fresh.isEmpty()) {
             throw ifEmpty.get();
@@ -187,8 +197,7 @@ public class LookupService {
         Corridor corridor = known.orElseThrow();
         log.info("serving {} cached samples for corridor={} ({})", fresh.size(),
                 corridor.getId(), notice);
-        return grids.build(corridor, fresh, WEEKDAYS, hours, true)
-                .withNotice(notice, resetsAt);
+        return lookupGrid(corridor, fresh).withNotice(notice, resetsAt);
     }
 
     /**
@@ -222,6 +231,11 @@ public class LookupService {
     /**
      * Fetches and persists the given slots, spending {@code budget} as it goes.
      *
+     * <p>The calls go out together, one thread each, and {@link RoutingClient} spaces
+     * them to the rate TomTom allows: about eleven seconds for a cold corridor's 45,
+     * where waiting for each answer before sending the next took twice that. Samples
+     * are saved here, on the calling thread, in slot order as the answers arrive.
+     *
      * <p>A failure on one slot does not abandon the rest — the same partial-failure
      * tolerance the sampler has, for the same reason: a grid with a hole still renders.
      *
@@ -229,43 +243,77 @@ public class LookupService {
      * out, which is the only place that knows whether one did: counting per slot instead
      * missed retries, and counting after the fact charged nothing for a request
      * interrupted between sending and reading its answer.
+     *
+     * <p>Every call has finished before this returns, however it returns. The caller
+     * releases whatever the budget has left, and a call still running could spend after
+     * that release and so go out uncounted.
      */
-    @Transactional
-    List<Sample> fill(Corridor corridor, List<Slot> slots, CallBudget budget) {
+    List<Sample> fill(Corridor corridor, List<Slot> slots, QuotaBudget budget) {
         ZonedDateTime now = ZonedDateTime.now(clock.withZone(DepartureSlots.ZONE));
         List<Sample> saved = new ArrayList<>();
         Long corridorId = corridor.getId();
-        for (Slot slot : slots) {
+        // Virtual threads, because each call spends nearly all its time waiting: for its
+        // turn under the rate limit, then for TomTom.
+        try (ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Optional<RoutingClient.RouteResult>>> results = new ArrayList<>();
+            for (Slot slot : slots) {
+                CallBudget perCall = budget.forCall();
+                results.add(calls.submit(() -> fetch(corridor, slot, now, perCall)));
+            }
             try {
-                ZonedDateTime departAt =
-                        DepartureSlots.nextOccurrence(slot.day(), slot.hour(), now);
-                Optional<RoutingClient.RouteResult> result = routing.compute(
-                        corridor.getOriginCoord(), corridor.getDestCoord(), departAt,
-                        budget);
-                if (result.isEmpty()) {
-                    continue;
+                for (int i = 0; i < slots.size(); i++) {
+                    Optional<RoutingClient.RouteResult> result = results.get(i).get();
+                    if (result.isEmpty()) {
+                        continue;
+                    }
+                    if (corridorId == null) {
+                        corridorId = register(corridor);
+                    }
+                    Slot slot = slots.get(i);
+                    saved.add(samples.save(new Sample(
+                            corridorId,
+                            slot.day(),
+                            slot.hour(),
+                            (int) result.get().durationSeconds(),
+                            result.get().distanceMeters(),
+                            clock.instant())));
                 }
-                if (corridorId == null) {
-                    corridorId = register(corridor);
-                }
-                saved.add(samples.save(new Sample(
-                        corridorId,
-                        slot.day(),
-                        slot.hour(),
-                        (int) result.get().durationSeconds(),
-                        result.get().distanceMeters(),
-                        clock.instant())));
-            } catch (CallNotSentException e) {
-                log.warn("lookup slot {} {}:00 not sent: {}", slot.day(), slot.hour(),
-                        e.getMessage());
-            } catch (IOException e) {
-                log.warn("lookup slot {} {}:00 failed: {}", slot.day(), slot.hour(),
-                        e.getMessage());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                break;
+            } catch (ExecutionException e) {
+                // fetch handles every failure it expects, so this one is not expected.
+                switch (e.getCause()) {
+                    case InterruptedException interrupt ->
+                            Thread.currentThread().interrupt();
+                    case RuntimeException unchecked -> throw unchecked;
+                    case Error error -> throw error;
+                    default -> throw new IllegalStateException(e.getCause());
+                }
+            } finally {
+                // A no-op once every call has answered. Otherwise it stops those still
+                // waiting for their turn, before any of them is charged, and closing the
+                // executor then waits out the ones already sent.
+                calls.shutdownNow();
             }
         }
         return saved;
+    }
+
+    /** One slot's call. Empty when it found no route or could not be completed. */
+    private Optional<RoutingClient.RouteResult> fetch(Corridor corridor, Slot slot,
+            ZonedDateTime now, CallBudget budget) throws InterruptedException {
+        try {
+            ZonedDateTime departAt =
+                    DepartureSlots.nextOccurrence(slot.day(), slot.hour(), now);
+            return routing.compute(corridor.getOriginCoord(), corridor.getDestCoord(),
+                    departAt, budget);
+        } catch (CallNotSentException e) {
+            log.warn("lookup slot {} {}:00 not sent: {}", slot.day(), slot.hour(),
+                    e.getMessage());
+        } catch (IOException e) {
+            log.warn("lookup slot {} {}:00 failed: {}", slot.day(), slot.hour(),
+                    e.getMessage());
+        }
+        return Optional.empty();
     }
 }

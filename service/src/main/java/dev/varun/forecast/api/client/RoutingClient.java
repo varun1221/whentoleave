@@ -17,6 +17,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -35,8 +36,12 @@ public class RoutingClient {
 
     private static final Logger log = LoggerFactory.getLogger(RoutingClient.class);
 
-    /** ~2 req/s, comfortably inside the freemium rate limit. */
-    private static final long MIN_INTERVAL_MILLIS = 500;
+    /**
+     * 4 req/s, under TomTom's default 5 QPS for Routing. Per instance: with Cloud Run's
+     * two, simultaneous cold lookups on both can briefly exceed it, and the 429s that
+     * follow are retried like any other.
+     */
+    private static final long MIN_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(250);
     private static final int MAX_ATTEMPTS = 3;
 
     private final ForecastProperties props;
@@ -45,14 +50,16 @@ public class RoutingClient {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    private long lastCallAt;
+    /** When the next request may go out, shared by every thread calling this client. */
+    private long nextSendAt = System.nanoTime();
 
     public RoutingClient(ForecastProperties props) {
         this.props = props;
     }
 
     /**
-     * One route for one future departure time.
+     * One route for one future departure time. Safe to call from several threads at
+     * once: requests are spaced across all of them, not per caller.
      *
      * <p>Every attempt is charged to {@code budget} before it goes out, retries
      * included: §9.4 counts what TomTom receives, not what the caller set out to do.
@@ -81,8 +88,10 @@ public class RoutingClient {
                 + "&travelMode=car&routeType=fastest&traffic=true";
 
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            // Claimed before the throttle rather than after, so that being interrupted
-            // while waiting errs towards charging for a request that may have gone out.
+            // Waited for before the call is claimed: a fill queues all its calls here at
+            // once, so an interrupt mid-fill finds most of them still waiting, and none
+            // of those has gone out.
+            throttle();
             if (!budget.tryAcquire()) {
                 if (attempt == 1) {
                     throw new CallNotSentException("no calls left in today's budget");
@@ -90,7 +99,6 @@ public class RoutingClient {
                 throw new IOException("calculateRoute had no budget to retry after "
                         + (attempt - 1) + " attempts");
             }
-            throttle();
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(10))
                     .GET()
@@ -139,12 +147,19 @@ public class RoutingClient {
                 length.isMissingNode() || length.isNull() ? null : length.asInt()));
     }
 
+    /**
+     * Books the next free send time and waits for it. The booking is under the lock and
+     * the wait is not, so callers queue in booking order without holding each other up.
+     */
     private void throttle() throws InterruptedException {
-        long since = System.currentTimeMillis() - lastCallAt;
-        if (since < MIN_INTERVAL_MILLIS) {
-            Thread.sleep(MIN_INTERVAL_MILLIS - since);
+        long wait;
+        synchronized (this) {
+            long now = System.nanoTime();
+            long sendAt = Math.max(now, nextSendAt);
+            nextSendAt = sendAt + MIN_INTERVAL_NANOS;
+            wait = sendAt - now;
         }
-        lastCallAt = System.currentTimeMillis();
+        TimeUnit.NANOSECONDS.sleep(wait);
     }
 
     private static long backoffMillis(int attempt) {

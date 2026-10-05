@@ -133,6 +133,12 @@ Neon Postgres  (corridor, sample, counters)   +   TomTom routing and search
 
 Live since 2026-09-26. The `sample` table doubles as the cache, per-IP and global daily
 counters live in Postgres beside it, and a kill switch pauses every paid call at once.
+
+A cold corridor is 45 routing calls, and TomTom serves about five a second per key
+however they are sent (batching measured no faster), so filling one takes ~11 s. The
+calls go out concurrently at 4/s, today's row first, and `POST /api/lookup`
+streams the grid as server-sent events to a client that accepts `text/event-stream`:
+the first hours show in about a second. Cache hits and refusals stay one JSON body.
 The spec's last step, a GraalVM native image, was dropped: the service runs as a plain
 JVM jar. Full design in the [spec](../traffic-forecast-spec.md).
 

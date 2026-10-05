@@ -45,16 +45,21 @@ export class ApiFailure extends Error {
 const unreachable = (status, message) =>
   new ApiFailure("unreachable", message ?? "Service unreachable", { status });
 
-async function request(path, options, fetchImpl) {
-  let response;
+async function send(path, options, fetchImpl) {
   try {
-    response = await fetchImpl(url(path), options);
+    return await fetchImpl(url(path), options);
   } catch (e) {
     // A network error, a CORS refusal, or an abort. No console noise: §10.4 counts an
     // unreachable backend as a normal state on a site whose Phase 1 half works offline.
     throw unreachable(null, e?.message);
   }
+}
 
+async function request(path, options, fetchImpl) {
+  return readJson(await send(path, options, fetchImpl));
+}
+
+async function readJson(response) {
   let body = null;
   try {
     body = await response.json();
@@ -82,18 +87,76 @@ export function getQuota({ fetchImpl = fetch, signal } = {}) {
   return request("/api/quota", { signal }, fetchImpl);
 }
 
-/** A forecast for an arbitrary corridor. Throws `ApiFailure` for every refusal. */
-export function requestLookup({ origin, dest }, { fetchImpl = fetch, signal } = {}) {
-  return request(
+const EVENT_STREAM = "text/event-stream";
+
+/** Event names, as `GridEvents` sends them. */
+const PROGRESS = "progress";
+const DONE = "done";
+
+/**
+ * A forecast for an arbitrary corridor. Throws `ApiFailure` for every refusal.
+ *
+ * A corridor nobody has asked about takes a call per hour to fill, about eleven seconds
+ * in all, so the service streams it: `onProgress` gets the grid each time another hour is
+ * in, and the promise resolves with the finished one. Anything it can answer at once —
+ * a cached corridor, a refusal — comes back as one JSON body, with no progress at all.
+ */
+export async function requestLookup(
+  { origin, dest },
+  { fetchImpl = fetch, signal, onProgress } = {}
+) {
+  const response = await send(
     "/api/lookup",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: `${EVENT_STREAM}, application/json`,
+      },
       body: JSON.stringify({ origin, dest }),
       signal,
     },
     fetchImpl
   );
+  const type = response.headers?.get?.("Content-Type") ?? "";
+  if (!response.ok || !type.includes(EVENT_STREAM)) return readJson(response);
+
+  let finished = null;
+  try {
+    await readEvents(response.body, (event, data) => {
+      if (event === PROGRESS) onProgress?.(JSON.parse(data));
+      if (event === DONE) finished = JSON.parse(data);
+    });
+  } catch (e) {
+    throw unreachable(response.status, e?.message);
+  }
+  // Ending without `done` is the service failing partway. What arrived stays shown.
+  if (!finished) throw unreachable(response.status, "The lookup stopped partway");
+  return finished;
+}
+
+/** Server-sent events off a fetch body: `event:` and `data:` lines, blank-line ended. */
+async function readEvents(body, onEvent) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += decoder.decode(value, { stream: true });
+    let end;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      let event = "message";
+      let data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event: ")) event = line.slice(7);
+        else if (line.startsWith("data: ")) data += line.slice(6);
+      }
+      onEvent(event, data);
+    }
+  }
 }
 
 /**

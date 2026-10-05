@@ -1,5 +1,6 @@
 package dev.varun.forecast.api.web;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -32,6 +33,10 @@ class ApiTest extends DatabaseTest {
     @Autowired private DailyIpLimiter perIp;
     @Autowired private QuotaService quotas;
     @Autowired private QuotaDay day;
+
+    /** What the site sends: a stream if the service has one, JSON otherwise. */
+    private static final String EVENTS_OR_JSON =
+            GridEvents.MEDIA_TYPE + ", " + MediaType.APPLICATION_JSON_VALUE;
 
     private static final String UNCACHED_LOOKUP =
             "{\"origin\":\"37.91,-122.91\",\"dest\":\"38.91,-121.91\"}";
@@ -209,6 +214,63 @@ class ApiTest extends DatabaseTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.notice").value("rate_limited"))
                 .andExpect(jsonPath("$.resetsAt").value(day.resetsAt().toString()));
+    }
+
+    /**
+     * A page that accepts events is shown a cold corridor filling in. The test context
+     * has no key, so nothing is fetched: the stream opens as the fill begins and closes
+     * with the empty grid it ended on.
+     */
+    @Test
+    void aColdLookupStreamsItsProgressToAClientThatAcceptsEvents() throws Exception {
+        String body = mvc.perform(post("/api/lookup")
+                        .header("CF-Connecting-IP", "198.51.100.40")
+                        .header("Accept", EVENTS_OR_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UNCACHED_LOOKUP))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(GridEvents.MEDIA_TYPE))
+                .andReturn().getResponse().getContentAsString();
+
+        assertTrue(body.startsWith("event: " + GridEvents.PROGRESS + "\ndata: {"), body);
+        assertTrue(body.contains("}\n\nevent: " + GridEvents.DONE + "\ndata: {"), body);
+        assertTrue(body.endsWith("}\n\n"), body);
+    }
+
+    /** A refusal is decided before anything streams, so it keeps its status code. */
+    @Test
+    void aRefusedLookupIsStillA429ForAClientThatAcceptsEvents() throws Exception {
+        quotas.reserve(150);
+
+        mvc.perform(post("/api/lookup")
+                        .header("CF-Connecting-IP", "198.51.100.41")
+                        .header("Accept", EVENTS_OR_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UNCACHED_LOOKUP))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.error").value("quota_exhausted"));
+    }
+
+    /** Nothing to fetch, nothing to watch: a degraded answer is one JSON body. */
+    @Test
+    void aLookupThatFetchesNothingIsPlainJsonForAClientThatAcceptsEvents()
+            throws Exception {
+        Corridor corridor = corridors.save(
+                new Corridor(null, "37.91,-122.91", "38.91,-121.91", null, false));
+        samples.save(new Sample(corridor.getId(), DayOfWeek.MONDAY, 6, 1800, 40_000,
+                Instant.now()));
+        jdbc.update("UPDATE service_setting SET value = 'false' "
+                + "WHERE key = 'lookups_enabled'");
+
+        mvc.perform(post("/api/lookup")
+                        .header("CF-Connecting-IP", "198.51.100.42")
+                        .header("Accept", EVENTS_OR_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(UNCACHED_LOOKUP))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.notice").value("lookups_paused"));
     }
 
     @Test

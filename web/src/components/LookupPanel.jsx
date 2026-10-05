@@ -18,8 +18,12 @@ export const shortLabel = (description) =>
  * entirely rather than offering a form that cannot work (§10.4). Everything the service
  * refuses arrives as an `ApiFailure` with a code, and every code has a sentence, so a
  * limit is stated rather than swallowed.
+ *
+ * A corridor that has to be fetched arrives in pieces: `onResult` with the first, as
+ * soon as it exists, then `onUpdate` with each grid after it. `filling` is set on all
+ * but the last; `stoppedPartway` on the last when the service failed before finishing.
  */
-export default function LookupPanel({ quota, onResult, onQuotaChange }) {
+export default function LookupPanel({ quota, onResult, onUpdate, onQuotaChange }) {
   const [origin, setOrigin] = useState(null);
   const [dest, setDest] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -32,15 +36,28 @@ export default function LookupPanel({ quota, onResult, onQuotaChange }) {
     if (!ready) return;
     setBusy(true);
     setFailure(null);
+    const corridor = {
+      // The same two ends looked up twice are one corridor, and one tab.
+      key: `${origin.coord}|${dest.coord}`,
+      name: `${shortLabel(origin.description)} → ${shortLabel(dest.description)}`,
+    };
+    let delivered = null;
+    const deliver = (result) => {
+      (delivered ? onUpdate : onResult)(result);
+      delivered = result;
+    };
     try {
-      const grid = await requestLookup({ origin: origin.coord, dest: dest.coord });
-      onResult({
-        grid,
-        // The same two ends looked up twice are one corridor, and one tab.
-        key: `${origin.coord}|${dest.coord}`,
-        name: `${shortLabel(origin.description)} → ${shortLabel(dest.description)}`,
-      });
+      const grid = await requestLookup(
+        { origin: origin.coord, dest: dest.coord },
+        { onProgress: (soFar) => deliver({ grid: soFar, ...corridor, filling: true }) }
+      );
+      deliver({ grid, ...corridor });
     } catch (thrown) {
+      // Stopped partway: what arrived stays, labelled as short, and nothing more is
+      // on its way.
+      if (delivered?.filling) {
+        deliver({ ...delivered, filling: false, stoppedPartway: true });
+      }
       setFailure(
         thrown instanceof ApiFailure
           ? thrown

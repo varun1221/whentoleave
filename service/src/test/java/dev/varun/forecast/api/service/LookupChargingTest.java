@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -157,6 +158,109 @@ class LookupChargingTest extends DatabaseTest {
             assertTrue(stub.shortestGap().toMillis() >= 150,
                     "calls stayed paced: shortest gap " + stub.shortestGap());
         }
+    }
+
+    /**
+     * The visitor is shown the grid as it fills: first whatever was cached, then one
+     * more slot each time, today's row first and then the days after it.
+     */
+    @Test
+    void aColdLookupReportsEachSlotAsItIsSavedTodayFirst() throws Exception {
+        try (StubTomTom stub = new StubTomTom()) {
+            for (int i = 0; i < 15; i++) {
+                stub.enqueue(200, ROUTE);
+            }
+            List<ForecastGrid> reports = new ArrayList<>();
+
+            ForecastGrid grid = lookupsAgainst(stub.baseUrl())
+                    .lookup("37.33,-122.33", "38.33,-121.33", IP, reports::add);
+
+            assertEquals(16, reports.size(), "one as the fill began, one per slot");
+            for (int i = 0; i < reports.size(); i++) {
+                assertEquals(i, reports.get(i).sampleCount());
+            }
+            assertEquals(grid.buckets(), reports.get(15).buckets(),
+                    "the last report is the answer");
+
+            DayOfWeek today = ZonedDateTime.now(DepartureSlots.ZONE).getDayOfWeek();
+            List<Slot> added = new ArrayList<>();
+            for (int i = 1; i < reports.size(); i++) {
+                added.add(addedBetween(reports.get(i - 1), reports.get(i)));
+            }
+            // On a weekend there is no today's row, and Monday comes first.
+            List<Slot> expected = added.stream()
+                    .sorted(java.util.Comparator
+                            .comparingInt((Slot slot) -> daysAfter(today, slot.day()))
+                            .thenComparingInt(Slot::hour))
+                    .toList();
+            assertEquals(expected, added);
+        }
+    }
+
+    private static int daysAfter(DayOfWeek from, DayOfWeek day) {
+        return Math.floorMod(day.getValue() - from.getValue(), 7);
+    }
+
+    /**
+     * Calls are spaced across every lookup on an instance. If a lookup could book all its
+     * send times at once, a second visitor would see nothing until the first visitor's
+     * whole grid was in.
+     */
+    @Test
+    void aSecondColdLookupIsNotQueuedBehindTheFirst() throws Exception {
+        try (StubTomTom stub = new StubTomTom(Duration.ofMillis(300))) {
+            for (int i = 0; i < 30; i++) {
+                stub.enqueue(200, ROUTE);
+            }
+            ForecastProperties props = TestProps.with(stub.baseUrl(), "test-key", 5, 20, 3);
+            LookupService lookups = lookupsUsing(props, new RoutingClient(props));
+            AtomicLong firstFinished = new AtomicLong();
+            AtomicLong secondsFirstHour = new AtomicLong();
+
+            Thread first = new Thread(() -> {
+                lookups.lookup("37.35,-122.35", "38.35,-121.35", "10.1.0.2");
+                firstFinished.set(System.nanoTime());
+            });
+            first.start();
+            Thread.sleep(300);
+            lookups.lookup("37.36,-122.36", "38.36,-121.36", "10.1.0.3", soFar -> {
+                if (soFar.sampleCount() > 0) {
+                    secondsFirstHour.compareAndSet(0, System.nanoTime());
+                }
+            });
+            first.join();
+
+            assertTrue(secondsFirstHour.get() < firstFinished.get(),
+                    "the second visitor's first hour came "
+                            + (secondsFirstHour.get() - firstFinished.get()) / 1_000_000
+                            + " ms after the first visitor's whole grid");
+        }
+    }
+
+    /** Nothing fetched, nothing reported: the answer is simply returned. */
+    @Test
+    void aWarmLookupReportsNothing() {
+        corridorMissing("37.34,-122.34", "38.34,-121.34", 0);
+        List<ForecastGrid> reports = new ArrayList<>();
+
+        lookupsAgainst("http://127.0.0.1:1")
+                .lookup("37.34,-122.34", "38.34,-121.34", IP, reports::add);
+
+        assertTrue(reports.isEmpty());
+    }
+
+    /** The one slot that has a sample in {@code after} but not in {@code before}. */
+    private static Slot addedBetween(ForecastGrid before, ForecastGrid after) {
+        for (var day : after.buckets().entrySet()) {
+            List<ForecastGrid.Bucket> was = before.buckets().get(day.getKey());
+            for (int i = 0; i < day.getValue().size(); i++) {
+                if (day.getValue().get(i).n() > was.get(i).n()) {
+                    return new Slot(DayOfWeek.valueOf(day.getKey()),
+                            day.getValue().get(i).slotHour());
+                }
+            }
+        }
+        throw new AssertionError("no slot was added");
     }
 
     /** TomTom unreachable: nothing left the process, so nothing is charged. */

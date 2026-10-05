@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LookupPanel, { shortLabel } from "./LookupPanel.jsx";
+import { eventStreamResponse, sseEvent } from "../lib/testStreams.js";
 
 /** What `/api/quota` answers; the panel reads the limits off it when it has to explain one. */
 const QUOTA = {
@@ -28,6 +29,10 @@ const answer = (status, body) => ({
   json: async () => body,
 });
 
+/** A lookup answered as a stream of server-sent events, one chunk per event. */
+const streamed = (...events) =>
+  eventStreamResponse(...events.map(([name, grid]) => sseEvent(name, grid)));
+
 /**
  * One stub for both endpoints the panel reaches, routed by path.
  *
@@ -49,15 +54,17 @@ function stubFetch({ suggestions = SUGGESTIONS, lookup = answer(200, { ok: true 
 
 function mount(quota = {}) {
   const onResult = vi.fn();
+  const onUpdate = vi.fn();
   const onQuotaChange = vi.fn();
   render(
     <LookupPanel
       quota={{ ...QUOTA, ...quota }}
       onResult={onResult}
+      onUpdate={onUpdate}
       onQuotaChange={onQuotaChange}
     />
   );
-  return { user: userEvent.setup(), onResult, onQuotaChange };
+  return { user: userEvent.setup(), onResult, onUpdate, onQuotaChange };
 }
 
 /** Type into one end of the form and take the suggestion, the way a visitor does. */
@@ -224,5 +231,48 @@ describe("LookupPanel", () => {
     // Not stranded in "Looking up…": the same two places can be sent again.
     expect(submit().disabled).toBe(false);
     expect(onQuotaChange).toHaveBeenCalled();
+  });
+
+  /**
+   * A cold corridor is shown as soon as its first grid arrives, then updated in place.
+   * Only the first is a new result: the app selects and scrolls to that one alone.
+   */
+  it("shows a streamed corridor at once and updates it as it fills", async () => {
+    stubFetch({
+      lookup: () =>
+        streamed(["progress", { n: 0 }], ["progress", { n: 1 }], ["done", { n: 2 }]),
+    });
+    const { user, onResult, onUpdate } = mount();
+
+    await bothEnds(user);
+    await user.click(submit());
+
+    const corridor = {
+      key: `${SUGGESTIONS[0].coord}|${SUGGESTIONS[1].coord}`,
+      name: "San Jose State University → Montgomery St",
+    };
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith({ grid: { n: 0 }, ...corridor, filling: true });
+    expect(onUpdate.mock.calls.map(([result]) => result)).toEqual([
+      { grid: { n: 1 }, ...corridor, filling: true },
+      { grid: { n: 2 }, ...corridor },
+    ]);
+  });
+
+  /**
+   * §10.4: a grid with holes is labelled, not left to pass for a whole answer. The tab
+   * keeps what arrived, stops promising more, and says it stopped short.
+   */
+  it("labels a corridor whose stream failed partway as stopped short", async () => {
+    stubFetch({ lookup: () => streamed(["progress", { n: 1 }]) });
+    const { user, onUpdate } = mount();
+
+    await bothEnds(user);
+    await user.click(submit());
+
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(onUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ grid: { n: 1 }, filling: false, stoppedPartway: true })
+    );
   });
 });

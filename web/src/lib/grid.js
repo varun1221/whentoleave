@@ -58,3 +58,12 @@ export function dayWithin(stats, preferred) {
   if (stats.days.includes(preferred)) return preferred;
   return stats.days[0] ?? null;
 }
+
+/** How many of a grid's hours have a sample, out of how many: how far a lookup got. */
+export function fillProgress(grid) {
+  const buckets = Object.values(grid.buckets).flat();
+  return {
+    filled: buckets.filter((bucket) => bucket.n > 0).length,
+    total: buckets.length,
+  };
+}

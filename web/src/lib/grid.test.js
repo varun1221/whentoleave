@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayWithin, gridStats, spreadPercent } from "./grid.js";
+import { dayWithin, fillProgress, gridStats, spreadPercent } from "./grid.js";
 
 const bucket = (slotHour, minutes, n = 3) => ({
   slotHour,
@@ -131,5 +131,20 @@ describe("dayWithin", () => {
 
   it("has no day to offer for an empty grid", () => {
     expect(dayWithin(gridStats({ buckets: {} }), "MONDAY")).toBeNull();
+  });
+});
+
+describe("fillProgress", () => {
+  it("counts the hours that have a sample, across every day, out of all of them", () => {
+    const bucket = (slotHour, n) => ({ slotHour, medianSeconds: n ? 1800 : null, n });
+
+    expect(
+      fillProgress({
+        buckets: {
+          MONDAY: [bucket(6, 1), bucket(7, 0)],
+          TUESDAY: [bucket(6, 2), bucket(7, 1)],
+        },
+      })
+    ).toEqual({ filled: 3, total: 4 });
   });
 });

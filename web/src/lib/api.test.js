@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiFailure, getQuota, joinUrl, requestLookup, suggestPlaces } from "./api.js";
+import { eventStreamResponse, sseEvent } from "./testStreams.js";
 
 /** A fetch that answers once with the given status and body. */
 const answers = (status, body) => () =>
@@ -193,5 +194,72 @@ describe("suggestPlaces", () => {
 
     await expect(suggestPlaces("palo alto", { fetchImpl: answers(200, found) }))
       .resolves.toEqual({ suggestions: found, code: null });
+  });
+});
+
+/** A fetch that answers with a server-sent event stream, delivered in these chunks. */
+const streams = (...chunks) => () => Promise.resolve(eventStreamResponse(...chunks));
+
+describe("requestLookup, streamed", () => {
+  it("asks for the grid as a stream", async () => {
+    let sent;
+    await requestLookup(
+      { origin: "37.1,-122.1", dest: "38.1,-121.1" },
+      {
+        fetchImpl: (url, options) => {
+          sent = options;
+          return answers(200, GRID)();
+        },
+      }
+    );
+
+    expect(sent.headers.Accept).toContain("text/event-stream");
+  });
+
+  it("reports each grid as it fills and resolves with the finished one", async () => {
+    const first = { ...GRID, sampleCount: 0 };
+    const second = { ...GRID, sampleCount: 1 };
+    const finished = { ...GRID, sampleCount: 2 };
+    const wire = sseEvent("progress", first) + sseEvent("progress", second) + sseEvent("done", finished);
+    const progress = [];
+
+    const grid = await requestLookup(
+      { origin: "37.1,-122.1", dest: "38.1,-121.1" },
+      {
+        // Split mid-event, as a network will: an event is only whole at its blank line.
+        fetchImpl: streams(wire.slice(0, 25), wire.slice(25, 90), wire.slice(90)),
+        onProgress: (soFar) => progress.push(soFar),
+      }
+    );
+
+    expect(progress).toEqual([first, second]);
+    expect(grid).toEqual(finished);
+  });
+
+  it("treats a stream that ends without its finished grid as unreachable", async () => {
+    const progress = [];
+    const failure = await requestLookup(
+      { origin: "37.1,-122.1", dest: "38.1,-121.1" },
+      {
+        fetchImpl: streams(sseEvent("progress", GRID)),
+        onProgress: (soFar) => progress.push(soFar),
+      }
+    ).catch((e) => e);
+
+    expect(progress).toEqual([GRID]);
+    expect(failure).toBeInstanceOf(ApiFailure);
+    expect(failure.code).toBe("unreachable");
+  });
+
+  it("answers a cached corridor from plain JSON with no progress", async () => {
+    const progress = [];
+
+    const grid = await requestLookup(
+      { origin: "37.1,-122.1", dest: "38.1,-121.1" },
+      { fetchImpl: answers(200, GRID), onProgress: (soFar) => progress.push(soFar) }
+    );
+
+    expect(grid).toEqual(GRID);
+    expect(progress).toEqual([]);
   });
 });

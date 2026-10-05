@@ -14,7 +14,7 @@ import {
   RAMP_LIGHT,
 } from "./lib/colorScale.js";
 import { getQuota } from "./lib/api.js";
-import { dayWithin, gridStats, spreadPercent } from "./lib/grid.js";
+import { dayWithin, fillProgress, gridStats, spreadPercent } from "./lib/grid.js";
 import { noticeFor } from "./lib/notices.js";
 import { DAY_LABEL, formatDate, hourLabel } from "./lib/format.js";
 
@@ -98,11 +98,13 @@ export default function App() {
   const routes = useMemo(
     () => [
       ...(forecasts?.routes ?? []),
-      ...lookups.map(({ grid, key, name }) => ({
+      ...lookups.map(({ grid, key, name, filling, stoppedPartway }) => ({
         ...grid,
         id: lookupId(key),
         name,
         lookedUp: true,
+        filling: filling ?? false,
+        stoppedPartway: stoppedPartway ?? false,
       })),
     ],
     [forecasts, lookups]
@@ -117,20 +119,25 @@ export default function App() {
   // selected route and nothing else.
   const stats = useMemo(() => (route ? gridStats(route) : null), [route]);
 
-  const onLookupResult = useCallback((result) => {
-    // A corridor asked for again replaces its old tab in place, with the fresher grid.
+  // A corridor asked for again replaces its old tab in place, with the fresher grid; and
+  // so does each grid a filling corridor streams in.
+  const replaceLookup = useCallback((result) => {
     setLookups((prev) =>
       prev.some((l) => l.key === result.key)
         ? prev.map((l) => (l.key === result.key ? result : l))
         : [...prev, result]
     );
+  }, []);
+
+  const onLookupResult = useCallback((result) => {
+    replaceLookup(result);
     setSelectedRouteId(lookupId(result.key));
     // The answer is below the search it came from: bring it into view rather than
     // leaving the visitor to find it.
     requestAnimationFrame(() =>
       routeRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" })
     );
-  }, []);
+  }, [replaceLookup]);
 
   if (error) {
     return (
@@ -183,6 +190,9 @@ export default function App() {
           <LookupPanel
             quota={quota}
             onResult={onLookupResult}
+            // Later grids of the same lookup update its tab without selecting it again,
+            // so a visitor who has moved to another tab is not pulled back each time.
+            onUpdate={replaceLookup}
             onQuotaChange={refreshQuota}
           />
         )}
@@ -202,9 +212,25 @@ export default function App() {
           </h2>
           <p className="subhead">
             {stats.empty
-              ? "No samples yet"
+              ? route.filling
+                ? "Fetching the first hours…"
+                : "No samples yet"
               : `${spreadPercent(stats)}% slower at its worst than at its best`}
           </p>
+          {route.filling && (
+            <p className="filling" role="status">
+              {fillProgress(route).filled} of {fillProgress(route).total} hours in so far.
+              The rest are on their way.
+            </p>
+          )}
+          {/* §10.4: a grid with holes says so, rather than leaving empty cells to be
+              read as an answer. */}
+          {route.stoppedPartway && (
+            <p className="filling" role="status">
+              Stopped at {fillProgress(route).filled} of {fillProgress(route).total} hours.
+              Looking it up again fetches only the ones still missing.
+            </p>
+          )}
         </div>
 
         <Banner notice={notice} />

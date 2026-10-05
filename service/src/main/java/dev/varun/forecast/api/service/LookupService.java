@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,14 @@ public class LookupService {
             DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
             DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
 
+    /**
+     * How many of one lookup's calls may wait under the rate limit at once. The limit is
+     * shared by every lookup on the instance and served in turn, so a lookup that queued
+     * all 45 would hold a second visitor back until its whole grid was in. Six keeps a
+     * lone lookup at the full rate — about 1.5 s of sends, against ~0.4 s per answer —
+     * and makes a second wait at most that long for its first.
+     */
+    private static final int QUEUED_PER_LOOKUP = 6;
 
     private final CorridorRepository corridors;
     private final SampleRepository samples;
@@ -78,6 +88,16 @@ public class LookupService {
     }
 
     public ForecastGrid lookup(String rawOrigin, String rawDest, String clientIp) {
+        return lookup(rawOrigin, rawDest, clientIp, LookupProgress.NONE);
+    }
+
+    /**
+     * As {@link #lookup(String, String, String)}, reporting the grid to {@code progress}
+     * as it fills. Every refusal is still thrown before the first report, so a caller
+     * that streams the reports can answer a refusal with a status code.
+     */
+    public ForecastGrid lookup(String rawOrigin, String rawDest, String clientIp,
+            LookupProgress progress) {
         String origin = Coordinates.normalise(rawOrigin);
         String dest = Coordinates.normalise(rawDest);
         if (origin.equals(dest)) {
@@ -100,7 +120,8 @@ public class LookupService {
         List<Sample> fresh = known
                 .map(c -> samples.findByCorridorIdAndRequestedAtAfter(c.getId(), cutoff))
                 .orElse(List.of());
-        List<Slot> missing = missingSlots(fresh, hours);
+        ZonedDateTime now = ZonedDateTime.now(clock.withZone(DepartureSlots.ZONE));
+        List<Slot> missing = missingSlots(fresh, hours, now.getDayOfWeek());
 
         if (missing.isEmpty()) {
             // The whole point of the design: a warm corridor is free, and costs the
@@ -151,7 +172,8 @@ public class LookupService {
                 false));
         List<Sample> saved;
         try {
-            saved = fill(corridor, missing.subList(0, granted), budget);
+            saved = fill(corridor, fresh, missing.subList(0, granted), budget, now,
+                    progress);
         } finally {
             // §9.4: only calls that actually reached TomTom count, against either limit.
             // In a finally because an unexpected failure mid-fill is exactly when the
@@ -210,8 +232,14 @@ public class LookupService {
                 pair.getDestCoord()).orElseThrow().getId();
     }
 
-    /** Slots in the target grid with no fresh sample behind them. */
-    private static List<Slot> missingSlots(List<Sample> fresh, List<Integer> hours) {
+    /**
+     * Slots in the target grid with no fresh sample behind them: today's row first, then
+     * the days after it, each in hour order. A visitor watching the grid fill most likely
+     * wants today first; and when the ceiling grants only some of the slots, those are
+     * the ones it grants. On a weekend, with no row for today, Monday leads.
+     */
+    private static List<Slot> missingSlots(List<Sample> fresh, List<Integer> hours,
+            DayOfWeek today) {
         Set<Slot> have = new HashSet<>();
         for (Sample sample : fresh) {
             have.add(new Slot(sample.getDayOfWeek(), sample.getSlotHour()));
@@ -225,6 +253,10 @@ public class LookupService {
                 }
             }
         }
+        missing.sort(Comparator
+                .comparingInt((Slot slot) ->
+                        Math.floorMod(slot.day().getValue() - today.getValue(), 7))
+                .thenComparingInt(Slot::hour));
         return missing;
     }
 
@@ -233,8 +265,10 @@ public class LookupService {
      *
      * <p>The calls go out together, one thread each, and {@link RoutingClient} spaces
      * them to the rate TomTom allows: about eleven seconds for a cold corridor's 45,
-     * where waiting for each answer before sending the next took twice that. Samples
-     * are saved here, on the calling thread, in slot order as the answers arrive.
+     * where waiting for each answer before sending the next took twice that. At most
+     * {@link #QUEUED_PER_LOOKUP} wait under the limit at once. Samples are saved here, on
+     * the calling thread, in slot order as the answers arrive, and each one is reported
+     * to {@code progress} with everything cached before it.
      *
      * <p>A failure on one slot does not abandon the rest — the same partial-failure
      * tolerance the sampler has, for the same reason: a grid with a hole still renders.
@@ -248,17 +282,30 @@ public class LookupService {
      * releases whatever the budget has left, and a call still running could spend after
      * that release and so go out uncounted.
      */
-    List<Sample> fill(Corridor corridor, List<Slot> slots, QuotaBudget budget) {
-        ZonedDateTime now = ZonedDateTime.now(clock.withZone(DepartureSlots.ZONE));
+    List<Sample> fill(Corridor corridor, List<Sample> cached, List<Slot> slots,
+            QuotaBudget budget, ZonedDateTime now, LookupProgress progress) {
         List<Sample> saved = new ArrayList<>();
+        List<Sample> soFar = new ArrayList<>(cached);
         Long corridorId = corridor.getId();
+        progress.filled(lookupGrid(corridor, soFar));
+        // Fair, so the calls take their turns in slot order, today's first.
+        Semaphore queued = new Semaphore(QUEUED_PER_LOOKUP, true);
         // Virtual threads, because each call spends nearly all its time waiting: for its
         // turn under the rate limit, then for TomTom.
         try (ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<Optional<RoutingClient.RouteResult>>> results = new ArrayList<>();
             for (Slot slot : slots) {
                 CallBudget perCall = budget.forCall();
-                results.add(calls.submit(() -> fetch(corridor, slot, now, perCall)));
+                results.add(calls.submit(() -> {
+                    // Interrupted while waiting here, a call has neither gone out nor
+                    // been charged.
+                    queued.acquire();
+                    try {
+                        return fetch(corridor, slot, now, perCall);
+                    } finally {
+                        queued.release();
+                    }
+                }));
             }
             try {
                 for (int i = 0; i < slots.size(); i++) {
@@ -270,13 +317,16 @@ public class LookupService {
                         corridorId = register(corridor);
                     }
                     Slot slot = slots.get(i);
-                    saved.add(samples.save(new Sample(
+                    Sample sample = samples.save(new Sample(
                             corridorId,
                             slot.day(),
                             slot.hour(),
                             (int) result.get().durationSeconds(),
                             result.get().distanceMeters(),
-                            clock.instant())));
+                            clock.instant()));
+                    saved.add(sample);
+                    soFar.add(sample);
+                    progress.filled(lookupGrid(corridor, soFar));
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

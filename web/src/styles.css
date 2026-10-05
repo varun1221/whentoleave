@@ -98,6 +98,13 @@ h3 {
   font-size: 0.86rem;
 }
 
+/* A looked-up corridor still streaming in: says the empty cells are not the answer. */
+.filling {
+  margin: 0.4rem 0 0;
+  color: var(--brand);
+  font-size: 0.86rem;
+}
+
 code {
   font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace;
   padding: 0.05rem 0.3rem;

@@ -149,10 +149,6 @@ cd web && npm test               # frontend tests
 cd web && npm run build          # production build
 ```
 
-**321 tests:** 32 for the sampler, 211 for the API (run against a real Postgres, not
-H2), and 78 for the frontend. No test can spend API quota: every outbound call goes to
-a local stub or is expected to fail.
-
 ---
 
 ## FAQ

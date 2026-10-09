@@ -23,26 +23,19 @@ themselves.
 
 ## Features
 
-🗓️ **The whole week at a glance.** A 7-day × 13-hour grid (06:00–18:00) for each commute.
-All 455 cells are filled, each one the median of weekly samples.
+**The whole week at a glance.** A 7-day × 13-hour grid (06:00–18:00) for each commute.
 
-📈 **Departure curve.** Click a day to see how its travel time rises and falls hour by
+**Departure curve.** Click a day to see how its travel time rises and falls hour by
 hour, and where the rush hours start and end.
 
-⏰ **Leave-by planner.** Enter the time you need to arrive. You get the latest departure
+**Leave-by planner.** Enter the time you need to arrive. You get the latest departure
 that makes it, plus the next two options and how many minutes late each would make you.
 
-📍 **Any route, on demand.** Search two addresses with autocomplete, or paste
+**Any route, on demand.** Search two addresses with autocomplete, or paste
 coordinates, and get a weekday profile of the peak hours for that trip. It opens as its
 own tab next to the built-in commutes.
 
-♻️ **Cache-first API.** Any sample younger than a week is served straight from Postgres,
-so the second person to ask about a route costs nothing.
-
-🛡️ **Safe to leave public.** Per-visitor daily limits, global daily ceilings, a kill
-switch, and Cloudflare rules in front. A stranger can't run up a bill.
-
-🔁 **Self-updating.** Every Sunday, GitHub Actions samples the week ahead, commits the
+**Self-updating.** Every Sunday, GitHub Actions samples the week ahead, commits the
 data, loads it into the database, and the site redeploys.
 
 ---
@@ -143,12 +136,6 @@ separate billable API call, and no endpoint batches them. A full week is 91 call
 route; the weekday peaks (5 days × 9 hours) are 45, and they're where commute times
 actually differ.
 
-**Does it cost anything to run?** The domain, about $22 a year. Everything else runs on
-free tiers, and hard caps keep it inside them. The arithmetic is in
-[docs/DESIGN.md](docs/DESIGN.md#cost-and-guardrails).
-
-**Why is the sampler plain Java but the API Spring Boot?** A 90-second weekly job that
-reads a config, makes HTTP calls and writes files uses nothing Spring provides.
 
 ---
 

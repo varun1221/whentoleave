@@ -18,7 +18,7 @@ describe("leaveBy", () => {
     expect(onTime.departMinute).toBe(at(8, 30));
     expect(onTime.durationSeconds).toBe(30 * 60);
     expect(onTime.arrivalMinute).toBe(at(9));
-    expect(onTime.lastSampled).toBe(false);
+    expect(onTime.estimate).toBeNull();
   });
 
   it("never rounds an answer into being late", () => {
@@ -37,21 +37,55 @@ describe("leaveBy", () => {
    */
   it("does not stop at the first window that happens to work", () => {
     // 06:xx works, 07:00 is a peak and fails, 08:00 works again and is later.
-    const { onTime } = leaveBy([b(6, 50), b(7, 75), b(8, 55)], at(9, 10));
+    const { onTime } = leaveBy([b(6, 50), b(7, 75), b(8, 55)], at(8, 55));
     expect(onTime.departMinute).toBe(at(8));
   });
 
-  it("never bridges a gap between sampled hours", () => {
-    // A lookup sampled 09:00 and 16:00 says nothing about noon.
-    const { onTime } = leaveBy([b(9, 30), b(16, 40)], at(14));
-    expect(onTime.departMinute).toBe(at(9));
-    expect(onTime.lastSampled).toBe(true);
+  /**
+   * The waste this exists to avoid: a lookup samples 06–10 and 15–18, so for a 15:00
+   * appointment the latest *sampled* departure is 10:00 — four hours of waiting.
+   */
+  it("estimates across a midday gap instead of falling back to the morning", () => {
+    const lookupDay = [6, 7, 8, 9, 10].map((h) => b(h, 30)).concat(
+      [15, 16, 17, 18].map((h) => b(h, 38))
+    );
+    const { onTime } = leaveBy(lookupDay, at(15));
+    // The slower side of the gap is 38 min: 15:00 − 38 = 14:22, rounded down to 14:20.
+    expect(onTime.departMinute).toBe(at(14, 20));
+    expect(onTime.durationSeconds).toBe(38 * 60);
+    expect(onTime.estimate).toEqual({ after: 10, before: 15 });
   });
 
-  it("flags an answer pinned to the day's last sample", () => {
-    const { onTime } = leaveBy([b(17, 30), b(18, 30)], at(21));
+  it("assumes the slower of the two drives either side of a gap", () => {
+    const { onTime } = leaveBy([b(9, 50), b(16, 40)], at(14));
+    expect(onTime.durationSeconds).toBe(50 * 60);
+    expect(onTime.departMinute).toBe(at(13, 10));
+  });
+
+  it("estimates past the last sample with the last sample's drive", () => {
+    const { onTime } = leaveBy([b(17, 30), b(18, 32)], at(22));
+    expect(onTime.departMinute).toBe(at(21, 25)); // 22:00 − 32 = 21:28 → 21:25
+    expect(onTime.estimate).toEqual({ after: 18, before: null });
+  });
+
+  it("estimates before the first sample with the first sample's drive", () => {
+    // 06:00 + 90m lands 07:30, too late for 07:00; leaving 05:30 should make it.
+    const { onTime } = leaveBy([b(6, 90), b(7, 100)], at(7));
+    expect(onTime.departMinute).toBe(at(5, 30));
+    expect(onTime.estimate).toEqual({ after: null, before: 6 });
+  });
+
+  it("lets a sample win over an estimate whenever the sample is later", () => {
+    // 18:00 + 30m arrives exactly 18:30; the after-18:00 stretch has nothing later.
+    const { onTime } = leaveBy([b(17, 30), b(18, 30)], at(18, 30));
     expect(onTime.departMinute).toBe(at(18));
-    expect(onTime.lastSampled).toBe(true);
+    expect(onTime.estimate).toBeNull();
+  });
+
+  it("never estimates an arrival later than the deadline", () => {
+    const { onTime } = leaveBy([b(9, 33), b(15, 47)], at(13, 1));
+    expect(onTime.estimate).not.toBeNull();
+    expect(onTime.arrivalMinute).toBeLessThanOrEqual(at(13, 1));
   });
 
   it("offers a departure that arrives with time to spare", () => {
@@ -62,22 +96,23 @@ describe("leaveBy", () => {
   });
 
   it("drops the buffer when no departure leaves room for it", () => {
-    const { onTime, buffer } = leaveBy([b(8, 55)], at(9));
-    expect(onTime.departMinute).toBe(at(8));
+    // 00:20 on a 10-minute drive: 00:10 makes it, nothing before midnight is offered.
+    const { onTime, buffer } = leaveBy([b(6, 10)], at(0, 20));
+    expect(onTime.departMinute).toBe(at(0, 10));
     expect(buffer).toBeNull();
   });
 
   it("says so when no departure makes the deadline, and by how little", () => {
-    // Earliest possible arrival is 06:00 + 90m = 07:30, deadline is 07:00.
-    const result = leaveBy([b(6, 90), b(7, 100)], at(7));
+    // A 01:00 deadline on a 90-minute drive would mean leaving the day before.
+    const result = leaveBy([b(6, 90), b(7, 100)], at(1));
     expect(result.onTime).toBeNull();
     expect(result.buffer).toBeNull();
     expect(result.impossible.departMinute).toBe(at(6));
-    expect(result.impossible.minutesLate).toBe(30);
+    expect(result.impossible.minutesLate).toBe(at(7, 30) - at(1));
   });
 
   it("ignores unsampled cells rather than treating them as instant", () => {
-    const { onTime } = leaveBy([b(6, null), b(7, null), b(8, 30)], at(9));
+    const { onTime } = leaveBy([b(6, null), b(7, null), b(8, 30)], at(8, 30));
     expect(onTime.departMinute).toBe(at(8));
     expect(onTime.durationSeconds).toBe(1800);
   });

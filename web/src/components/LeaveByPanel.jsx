@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { BUFFER_MINUTES, leaveBy } from "../lib/leaveBy.js";
-import { DAY_LABEL, clockLabel, toMinutes } from "../lib/format.js";
+import { DAY_LABEL, clockLabel, hourLabel, toMinutes } from "../lib/format.js";
 
 const DEFAULT_ARRIVAL = "09:00";
 
@@ -65,7 +65,7 @@ export default function LeaveByPanel({ route, day, days, onSelectDay }) {
               : `No samples for ${DAY_LABEL[day]} yet.`}
           </p>
         ) : result.onTime ? (
-          <OnTime result={result} />
+          <OnTime result={result} deadline={arrivalMinute} />
         ) : (
           <p className="leave-headline">
             <span className="leave-miss">Nothing makes it in time</span>
@@ -81,15 +81,36 @@ export default function LeaveByPanel({ route, day, days, onSelectDay }) {
   );
 }
 
-function OnTime({ result: { onTime, buffer } }) {
+/** "2 min early", "1 h 5 min early", or nothing when it lands on the minute. */
+function earliness(deadline, arrivalMinute) {
+  const early = Math.round(deadline - arrivalMinute);
+  if (early < 1) return "";
+  const h = Math.floor(early / 60);
+  const m = early % 60;
+  return ` (${h ? `${h} h${m ? ` ${m} min` : ""}` : `${m} min`} early)`;
+}
+
+/** Where an estimate comes from, in the words of the hours either side of it. */
+function estimateNote({ after, before }) {
+  if (after != null && before != null) {
+    return `Nothing between ${hourLabel(after)} and ${hourLabel(before)} was sampled, so this assumes the slower of those two drives.`;
+  }
+  const edge = after ?? before;
+  return `Nothing ${after != null ? "after" : "before"} ${hourLabel(edge)} was sampled, so this assumes the ${hourLabel(edge)} drive time.`;
+}
+
+function OnTime({ result: { onTime, buffer }, deadline }) {
   return (
     <>
       <p className="leave-headline">
-        <span className="leave-label">Leave by</span>
+        <span className="leave-label">
+          Leave by{onTime.estimate && <span className="leave-estimate">estimate</span>}
+        </span>
         <span className="leave-time">{clockLabel(onTime.departMinute)}</span>
         <span className="leave-detail">
           {toMinutes(onTime.durationSeconds)} min drive, arriving about{" "}
           {clockLabel(onTime.arrivalMinute)}
+          {earliness(deadline, onTime.arrivalMinute)}
         </span>
       </p>
 
@@ -101,12 +122,7 @@ function OnTime({ result: { onTime, buffer } }) {
         </p>
       )}
 
-      {onTime.lastSampled && (
-        <p className="leave-note">
-          That’s the latest sampled departure. Nothing after it was sampled, so leaving
-          later might still work.
-        </p>
-      )}
+      {onTime.estimate && <p className="leave-note">{estimateNote(onTime.estimate)}</p>}
     </>
   );
 }

@@ -303,14 +303,11 @@ export default function App() {
           departure hours {hourLabel(stats.hours[0])}–
           {hourLabel(stats.hours[stats.hours.length - 1])} Pacific.
         </p>
-        <p className="caveat">
-          Historical averages from TomTom’s speed-profile data, reshaped into a view
-          neither TomTom nor Google Maps offers. It does not out-predict either — it shows
-          you the shape of the week they already know about.
-          {forecasts.sweepsSampled < 3 && (
-            <> Low sample counts this early; each cell’s <em>n</em> is in its tooltip.</>
-          )}
-        </p>
+        {forecasts.sweepsSampled < 3 && (
+          <p className="caveat">
+            Low sample counts this early; each cell’s <em>n</em> is in its tooltip.
+          </p>
+        )}
       </footer>
     </Frame>
   );

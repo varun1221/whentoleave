@@ -197,7 +197,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 TOTAL_STAGES=11
 
-REPO="varun1221/forecastapp"
+REPO="varun1221/whentoleave"
 POOL="github"
 PROVIDER="forecastapp"
 AR_REPO="forecast"

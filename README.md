@@ -87,8 +87,8 @@ The full architecture, the cost arithmetic and the guardrails are in
 See the site running locally with the committed data, **no API key needed**:
 
 ```bash
-git clone https://github.com/varun1221/forecastapp.git
-cd forecastapp/web
+git clone https://github.com/varun1221/whentoleave.git
+cd whentoleave/web
 npm install
 npm run dev          # http://localhost:5173
 ```

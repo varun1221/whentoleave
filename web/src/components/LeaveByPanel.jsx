@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { leaveBy } from "../lib/leaveBy.js";
-import { DAY_LABEL, clockLabel, hourLabel, toMinutes } from "../lib/format.js";
+import { BUFFER_MINUTES, leaveBy } from "../lib/leaveBy.js";
+import { DAY_LABEL, clockLabel, toMinutes } from "../lib/format.js";
 
 const DEFAULT_ARRIVAL = "09:00";
 
@@ -9,7 +9,11 @@ const toMinuteOfDay = (value) => {
   return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
 };
 
-export default function LeaveByPanel({ route, day }) {
+/**
+ * "I need to arrive by ___ on ___" filled in as a sentence, answered with a clock time.
+ * The day buttons share state with the heatmap rows, so picking either moves both.
+ */
+export default function LeaveByPanel({ route, day, days, onSelectDay }) {
   const [arrival, setArrival] = useState(DEFAULT_ARRIVAL);
   const arrivalMinute = toMinuteOfDay(arrival);
 
@@ -19,14 +23,17 @@ export default function LeaveByPanel({ route, day }) {
   );
 
   return (
-    <section className="card">
+    <section className="card leave-by">
       <div className="card-head">
         <div>
           <h3>Leave by</h3>
-          <p className="subhead">The latest departure that still arrives on time</p>
+          <p className="subhead">The latest you can leave and still arrive on time</p>
         </div>
+      </div>
+
+      <div className="leave-question">
         <label className="arrival-field">
-          <span>Arrive at {DAY_LABEL[day]}</span>
+          <span>I need to arrive by</span>
           <input
             type="time"
             value={arrival}
@@ -34,45 +41,72 @@ export default function LeaveByPanel({ route, day }) {
             onChange={(e) => setArrival(e.target.value)}
           />
         </label>
+        <div className="day-picker" role="group" aria-label="Day">
+          <span>on</span>
+          {days.map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={d === day ? "day-chip is-selected" : "day-chip"}
+              aria-pressed={d === day}
+              onClick={() => onSelectDay(d)}
+            >
+              {DAY_LABEL[d]}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {!result || (!result.onTime && !result.impossible) ? (
-        <p className="empty-note">No samples for this day yet.</p>
-      ) : result.onTime ? (
-        <>
+      <div className="leave-answer" aria-live="polite">
+        {!result || (!result.onTime && !result.impossible) ? (
+          <p className="empty-note">
+            {arrivalMinute == null
+              ? "Pick an arrival time."
+              : `No samples for ${DAY_LABEL[day]} yet.`}
+          </p>
+        ) : result.onTime ? (
+          <OnTime result={result} />
+        ) : (
           <p className="leave-headline">
-            <span className="leave-time">{hourLabel(result.onTime.slotHour)}</span>
+            <span className="leave-miss">Nothing makes it in time</span>
             <span className="leave-detail">
-              {toMinutes(result.onTime.durationSeconds)} min drive, arriving around{" "}
-              {clockLabel(result.onTime.arrivalMinute)}
+              The closest is leaving at {clockLabel(result.impossible.departMinute)},
+              arriving about {clockLabel(result.impossible.arrivalMinute)} —{" "}
+              <span className="leave-late">{result.impossible.minutesLate} min late</span>.
             </span>
           </p>
-          {result.alternatives.length > 0 && (
-            <ul className="penalty-list" aria-label="Leaving later">
-              {result.alternatives.map((alt) => (
-                <li key={alt.slotHour}>
-                  <span className="penalty-slot">{hourLabel(alt.slotHour)}</span>
-                  <span className="penalty-cost">
-                    {toMinutes(alt.durationSeconds)} min drive, arrive{" "}
-                    {clockLabel(alt.arrivalMinute)}
-                  </span>
-                  <span className="penalty-late">{alt.minutesLate} min late</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      ) : (
-        <p className="leave-headline">
-          No departure in the sampled window makes it.
-          <span className="leave-detail">
-            {" "}
-            The best try is {hourLabel(result.impossible.slotHour)}, arriving{" "}
-            {clockLabel(result.impossible.arrivalMinute)} —{" "}
-            {result.impossible.minutesLate} min late.
-          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function OnTime({ result: { onTime, buffer } }) {
+  return (
+    <>
+      <p className="leave-headline">
+        <span className="leave-label">Leave by</span>
+        <span className="leave-time">{clockLabel(onTime.departMinute)}</span>
+        <span className="leave-detail">
+          {toMinutes(onTime.durationSeconds)} min drive, arriving about{" "}
+          {clockLabel(onTime.arrivalMinute)}
+        </span>
+      </p>
+
+      {buffer && (
+        <p className="leave-buffer">
+          <span>Want {BUFFER_MINUTES} min to spare?</span>{" "}
+          Leave by <strong>{clockLabel(buffer.departMinute)}</strong>, arriving about{" "}
+          {clockLabel(buffer.arrivalMinute)}.
         </p>
       )}
-    </section>
+
+      {onTime.lastSampled && (
+        <p className="leave-note">
+          That’s the latest sampled departure. Nothing after it was sampled, so leaving
+          later might still work.
+        </p>
+      )}
+    </>
   );
 }

@@ -799,11 +799,67 @@ h1 {
   outline-offset: 1px;
 }
 
+.leave-question {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.day-picker > span {
+  margin-right: 0.25rem;
+}
+
+.day-chip {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.3rem 0.55rem;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.day-chip:hover {
+  color: var(--text-primary);
+}
+
+.day-chip.is-selected {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--text-primary);
+}
+
+.day-chip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
 .leave-headline {
   margin: 0;
   display: grid;
-  gap: 0.15rem;
+  gap: 0.2rem;
   font-size: 1rem;
+}
+
+.leave-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .leave-time {
@@ -814,44 +870,45 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+.leave-miss {
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
 .leave-detail {
   color: var(--text-secondary);
   font-size: 0.9rem;
-}
-
-.penalty-list {
-  list-style: none;
-  margin: 1.1rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.4rem;
-}
-
-.penalty-list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.55rem 0.75rem;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-}
-
-.penalty-slot {
-  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 
-.penalty-cost {
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.penalty-late {
+.leave-late {
   color: var(--bad);
   font-weight: 600;
+}
+
+.leave-buffer {
+  margin: 1.1rem 0 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.86rem;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.leave-buffer > span {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.leave-buffer strong {
+  color: var(--text-primary);
+}
+
+.leave-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* ------------------------------------------------------------------ banner */

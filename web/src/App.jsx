@@ -292,7 +292,12 @@ export default function App() {
             <DepartureCurve route={route} day={shownDay} accent={accent} />
           </div>
 
-          <LeaveByPanel route={route} day={shownDay} />
+          <LeaveByPanel
+            route={route}
+            day={shownDay}
+            days={stats.days}
+            onSelectDay={setSelectedDay}
+          />
         </div>
       </section>
 

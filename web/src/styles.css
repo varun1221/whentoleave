@@ -375,62 +375,240 @@ h1 {
 
 /* ------------------------------------------------------------ route section */
 
-/* Wraps on a wide screen; on a phone it scrolls sideways instead (below), where a
-   second and third row would push the heatmap off the first screen. */
-.route-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.3rem;
-  margin: 0 0 1.75rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+/* The route's name doubles as its picker: a heading you can click, not a row of tabs. */
+.route-switcher {
+  position: relative;
 }
 
-.route-picker::-webkit-scrollbar {
+.route-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  margin: 0 0 0 -0.5rem;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.route-switch:hover,
+.route-switch[aria-expanded="true"] {
+  background: var(--surface-2);
+}
+
+.route-switch:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.route-switch-chevron {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+}
+
+.route-switch[aria-expanded="true"] .route-switch-chevron {
+  transform: rotate(180deg);
+}
+
+.switch-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 0.4rem);
+  left: -0.5rem;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+}
+
+.switch-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.switch-item,
+.switch-add {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.switch-item:hover,
+.switch-add:hover,
+.switch-item:focus-visible,
+.switch-add:focus-visible {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.switch-item.is-selected {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* A check on the current route; the space is kept on the others so names line up. */
+.switch-item::before {
+  content: "";
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.switch-item.is-selected::before {
+  background: var(--brand);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10.5l4 4 8-9' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10.5l4 4 8-9' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.switch-group {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem 0.7rem 0.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.switch-add {
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 9px 9px;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.switch-add:hover,
+.switch-add:focus-visible {
+  color: var(--brand);
+}
+
+.switch-add span {
+  width: 0.9rem;
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------- add dialog */
+
+/* Overflow stays visible so the address suggestions can drop past the dialog's edge. */
+.route-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  margin: 12vh auto auto;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.route-dialog::backdrop {
+  background: rgb(9 9 11 / 0.4);
+}
+
+.route-dialog-body {
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.route-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.route-dialog-close {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.route-dialog-close:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* In the dialog the two fields stack, with the button full width under them. */
+.route-dialog .search {
+  margin: 0;
+}
+
+.route-dialog .search-bar {
+  grid-template-columns: 1fr;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.route-dialog .search-arrow {
   display: none;
 }
 
-.route-tab {
-  flex: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 10px;
-  padding: 0.5rem 0.9rem;
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 500;
+.route-dialog .place-field {
+  border: 1px solid var(--border);
+}
+
+.route-dialog .search-submit {
+  margin-top: 0.5rem;
+}
+
+.route-dialog .search-note {
+  text-align: left;
+}
+
+.route-dialog .suggestions {
+  left: 0;
+  width: 100%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.route-tab:hover {
-  color: var(--text-primary);
-}
-
-.route-tab.is-selected {
-  background: var(--surface-1);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
-}
-
-/* A looked-up corridor, marked apart from the seeded five. */
-.route-tab.is-lookup::before {
-  content: "";
-  display: inline-block;
-  width: 0.45rem;
-  height: 0.45rem;
-  margin-right: 0.45rem;
-  border-radius: 50%;
-  background: var(--brand);
-  vertical-align: 0.08rem;
 }
 
 .route-title {
@@ -1012,11 +1190,6 @@ h1 {
   .suggestions {
     left: 0;
     width: 100%;
-  }
-  .route-picker {
-    flex-wrap: nowrap;
-    width: fit-content;
-    max-width: 100%;
   }
   .highlights {
     grid-template-columns: repeat(2, minmax(0, 1fr));

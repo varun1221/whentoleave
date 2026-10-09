@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Heatmap from "./components/Heatmap.jsx";
 import ScaleLegend from "./components/ScaleLegend.jsx";
-import RoutePicker from "./components/RoutePicker.jsx";
+import RouteSwitcher from "./components/RouteSwitcher.jsx";
+import AddRouteDialog from "./components/AddRouteDialog.jsx";
 import DepartureCurve from "./components/DepartureCurve.jsx";
 import LeaveByPanel from "./components/LeaveByPanel.jsx";
 import LookupPanel from "./components/LookupPanel.jsx";
@@ -70,6 +71,7 @@ export default function App() {
   // Every corridor looked up this visit, oldest first, so a second lookup adds a tab
   // rather than taking the first one's away.
   const [lookups, setLookups] = useState([]);
+  const [adding, setAdding] = useState(false);
   const routeRef = useRef(null);
   const dark = useDarkMode();
   const { quota, refresh: refreshQuota } = useLookupApi();
@@ -132,6 +134,7 @@ export default function App() {
   const onLookupResult = useCallback((result) => {
     replaceLookup(result);
     setSelectedRouteId(lookupId(result.key));
+    setAdding(false);
     // The answer is below the search it came from: bring it into view rather than
     // leaving the visitor to find it.
     requestAnimationFrame(() =>
@@ -184,32 +187,30 @@ export default function App() {
           Google Maps tells you how long a trip takes <em>now</em>. This shows how it
           changes across the whole week, so you can choose when to go.
         </p>
+      </section>
 
-        {/* Only once the service has answered: an unreachable backend offers no form. */}
-        {quota && (
+      {/* Only once the service has answered: an unreachable backend offers no form. */}
+      {quota && (
+        <AddRouteDialog open={adding} onClose={() => setAdding(false)}>
           <LookupPanel
             quota={quota}
             onResult={onLookupResult}
-            // Later grids of the same lookup update its tab without selecting it again,
-            // so a visitor who has moved to another tab is not pulled back each time.
+            // Later grids of the same lookup update its entry without selecting it
+            // again, so a visitor who has moved to another route is not pulled back.
             onUpdate={replaceLookup}
             onQuotaChange={refreshQuota}
           />
-        )}
-      </section>
+        </AddRouteDialog>
+      )}
 
       <section className="route-section" ref={routeRef}>
-        <RoutePicker
-          routes={routes}
-          selectedRouteId={selectedRouteId}
-          onSelect={setSelectedRouteId}
-        />
-
         <div className="route-title">
-          <h2>
-            {route.name}
-            {route.partial && <span className="badge">Weekday peaks</span>}
-          </h2>
+          <RouteSwitcher
+            routes={routes}
+            selectedRoute={route}
+            onSelect={setSelectedRouteId}
+            onAdd={quota ? () => setAdding(true) : null}
+          />
           <p className="subhead">
             {stats.empty
               ? route.filling
